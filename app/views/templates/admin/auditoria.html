@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Auditoría{% endblock %}
+{% block contenido %}
+<h1 class="titulo-pagina">{{ titulo }}</h1>
+
+<form method="get" class="barra-filtros">
+  <div class="campo">
+    <label for="modulo">Módulo</label>
+    <select id="modulo" name="modulo">
+      <option value="">Todos</option>
+      {% for m in ['ACCESO', 'USUARIOS', 'PERFILES', 'CARGAS', 'CALIDAD', 'EXPORTACION'] %}
+      <option value="{{ m }}" {{ 'selected' if modulo_seleccionado == m }}>{{ m }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="campo">
+    <label for="limite">Filas</label>
+    <input type="number" id="limite" name="limite" min="10" max="1000" value="{{ registros|length }}">
+  </div>
+  <div class="campo acciones">
+    <button type="submit" class="boton">Filtrar</button>
+    <a class="boton boton-linea"
+       href="{{ url_for('admin.auditoria_exportar', modulo=modulo_seleccionado, formato='csv') }}">CSV</a>
+    <a class="boton boton-linea"
+       href="{{ url_for('admin.auditoria_exportar', modulo=modulo_seleccionado, formato='xlsx') }}">XLSX</a>
+  </div>
+</form>
+
+<table class="tabla tabla-datos">
+  <thead>
+    <tr><th>Fecha</th><th>Usuario</th><th>Módulo</th><th>Acción</th><th>Detalle</th></tr>
+  </thead>
+  <tbody>
+    {% for r in registros %}
+    <tr>
+      <td>{{ r.fecha_evento|fecha('con_hora') }}</td>
+      <td>{{ r.usuario_nombre or r.usuario or 'sistema' }}</td>
+      <td>{{ r.modulo }}</td>
+      <td>{{ r.accion }}</td>
+      <td class="detalle">{{ r.detalle or '' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="vacio">Sin registros de auditoría.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

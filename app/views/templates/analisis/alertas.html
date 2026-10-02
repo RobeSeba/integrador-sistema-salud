@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% from "_macros.html" import kpi, vacio, grafico_barras %}
+{% block titulo %}Monitoreo de alertas{% endblock %}
+
+{% block contenido %}
+<h1 class="titulo-pagina">{{ titulo }}</h1>
+{% set action_actual = url_for('analisis.alertas') %}
+{% include "_filtros.html" %}
+
+<nav class="pestanas">
+  {% for p in catalogo %}
+  <a href="{{ url_filtros('analisis.procedimiento', clave=p.clave) }}">{{ p.nombre }}</a>
+  {% endfor %}
+</nav>
+
+<section class="kpis">
+  {{ kpi('EESS reportando', resumen.establecimientos_reportando|numero,
+         resumen.dias_reporte|numero ~ ' días con reporte') }}
+  {{ kpi('Ocupación promedio', resumen.ocupacion_promedio|pct ~ '%',
+         'máx. ' ~ (resumen.ocupacion_maxima|pct) ~ '%',
+         'critico' if (resumen.ocupacion_promedio or 0) >= 90 else 'neutro') }}
+  {{ kpi('Días en rojo', resumen.dias_rojo|numero, 'registros sobre umbral',
+         'critico' if (resumen.dias_rojo or 0) > 0 else 'ok') }}
+  {{ kpi('Días en amarillo', resumen.dias_amarillo|numero) }}
+  {{ kpi('Sobre umbral', resumen.registros_sobre_umbral|numero,
+         'umbral ' ~ (filtros.umbral_ocupacion|int) ~ '%') }}
+  {{ kpi('Ventiladores inoperativos', resumen.vent_inoperativos|numero,
+         'de ' ~ (resumen.vent_operativos|numero) ~ ' operativos') }}
+</section>
+
+<section class="panel">
+  <h2>Alertas por departamento</h2>
+  {% if departamentos %}
+  <table class="tabla tabla-datos">
+    <thead>
+      <tr><th>Departamento</th><th class="num">Establec.</th>
+          <th class="num">Días rojo</th><th class="num">Días amarillo</th>
+          <th class="num">Días verde</th><th class="num">Sobre umbral</th>
+          <th class="num">Ocupación prom.</th><th class="num">% vent. inoper.</th></tr>
+    </thead>
+    <tbody>
+      {% for d in departamentos %}
+      <tr>
+        <td>{{ d.departamento }}</td>
+        <td class="num">{{ d.establecimientos|numero }}</td>
+        <td class="num">{{ d.dias_rojo|numero }}</td>
+        <td class="num">{{ d.dias_amarillo|numero }}</td>
+        <td class="num">{{ d.dias_verde|numero }}</td>
+        <td class="num">{{ d.registros_sobre_umbral|numero }}</td>
+        <td class="num">{{ d.ocupacion_promedio|pct }}%</td>
+        <td class="num">{{ d.porc_vent_inoperativo|pct }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}{{ vacio() }}{% endif %}
+</section>
+
+<div class="dos-columnas">
+  <section class="panel">
+    <h2>Ocupación crítica</h2>
+    <p class="frase">
+      <a href="{{ url_filtros('analisis.exportar', recurso='alertas', formato='csv') }}">CSV</a> ·
+      <a href="{{ url_filtros('analisis.exportar', recurso='alertas', formato='xlsx') }}">XLSX</a>
+    </p>
+    {% if ocupacion %}
+    <table class="tabla">
+      <thead><tr><th>Establecimiento</th><th>Fecha</th><th class="num">Ocup.</th>
+                 <th class="num">UCI</th><th>Alerta</th></tr></thead>
+      <tbody>
+        {% for r in ocupacion[:20] %}
+        <tr>
+          <td><a href="{{ url_filtros('analisis.establecimiento', codigo_ipress=r.codigo_ipress) }}">
+              {{ r.nombre_establecimiento }}</a>
+            <br><small>{{ r.region }}</small></td>
+          <td>{{ r.fecha_corte|fecha }}</td>
+          <td class="num">{{ r.tasa_ocupacion_global|pct }}%</td>
+          <td class="num">{{ r.tasa_ocupacion_uci|pct }}%</td>
+          <td><span class="pill pill-{{ 'error' if r.nivel_alerta == 'ROJO' else ('aviso' if r.nivel_alerta == 'AMARILLO' else 'ok') }}">
+              {{ r.nivel_alerta }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}{{ vacio('Sin ocupación por encima del umbral.') }}{% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Inoperatividad de recursos</h2>
+    {% if inoperatividad %}
+    <table class="tabla">
+      <thead><tr><th>Establecimiento</th><th>Fecha</th>
+                 <th class="num">Vent.</th><th class="num">UCI</th><th class="num">Hosp.</th></tr></thead>
+      <tbody>
+        {% for r in inoperatividad[:20] %}
+        <tr>
+          <td>{{ r.nombre_establecimiento }}<br><small>{{ r.region }}</small></td>
+          <td>{{ r.fecha_corte|fecha }}</td>
+          <td class="num">{{ r.vent_inoperativos }}/{{ r.vent_operativos }}</td>
+          <td class="num">{{ r.uci_inoperativas }}/{{ r.uci_operativas }}</td>
+          <td class="num">{{ r.hosp_inoperativas }}/{{ r.hosp_operativas }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}{{ vacio('Sin recursos inoperativos registrados.') }}{% endif %}
+  </section>
+</div>
+
+{% if distribucion %}
+<section class="panel">
+  <h2>Distribución de niveles de alerta</h2>
+  <div class="tarjetas-alerta">
+    {% for a in distribucion %}
+    <div class="alerta alerta-{{ (a.nivel_alerta or 'sin-dato')|lower|replace(' ', '-') }}">
+      <p class="alerta-nivel">{{ a.nivel_alerta }}</p>
+      <p class="alerta-cifra">{{ a.registros|numero }}</p>
+      <p class="alerta-nota">{{ a.establecimientos|numero }} EESS</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if departamentos_grafico %}
+<section class="panel">
+  <h2>Registros en alerta por departamento</h2>
+  <p class="ayuda">Top 10 departamentos con registros sobre el umbral de ocupación.</p>
+  {{ grafico_barras(departamentos_grafico, color='#ea580c') }}
+</section>
+{% endif %}
+{% endblock %}

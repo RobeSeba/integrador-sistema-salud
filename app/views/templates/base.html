@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es-PE">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}{{ titulo }} · {{ app_nombre }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css') }}">
+</head>
+<body>
+<header class="cabecera">
+  <div class="marca">
+    <a href="{{ url_for('tablero.panel') }}">
+      <span class="sigla">SIBS</span>
+      <span class="titulo-app">{{ app_nombre }}</span>
+    </a>
+    <p class="subtitulo">{{ app_subtitulo }}</p>
+  </div>
+
+  {% if usuario %}
+  <nav class="menu">
+    <a href="{{ url_for('tablero.panel') }}"
+       class="{{ 'activo' if request.blueprint == 'tablero' }}">Panel</a>
+    <a href="{{ url_for('analisis.territorio') }}"
+       class="{{ 'activo' if request.endpoint == 'analisis.territorio' }}">Territorio</a>
+    <a href="{{ url_for('analisis.ranking') }}"
+       class="{{ 'activo' if request.endpoint == 'analisis.ranking' }}">Ranking</a>
+    <a href="{{ url_for('analisis.evolucion') }}"
+       class="{{ 'activo' if request.endpoint == 'analisis.evolucion' }}">Evolución</a>
+    <a href="{{ url_for('analisis.alertas') }}"
+       class="{{ 'activo' if request.endpoint == 'analisis.alertas' }}">Alertas</a>
+    {% if tiene_rol('ADMINISTRADOR') %}
+    <a href="{{ url_for('admin.usuarios') }}"
+       class="{{ 'activo' if request.blueprint == 'admin' }}">Administración</a>
+    {% endif %}
+  </nav>
+
+  <div class="sesion">
+    <span class="usuario-info">
+      <strong>{{ usuario.nombre_completo }}</strong>
+      <span class="rol">{{ usuario.rol }}</span>
+    </span>
+    <a href="{{ url_for('auth.perfil') }}" class="boton boton-linea">Mi perfil</a>
+    <a href="{{ url_for('auth.logout') }}" class="boton boton-linea">Salir</a>
+  </div>
+  {% else %}
+  <div class="sesion"></div>
+  {% endif %}
+</header>
+
+{% with mensajes = get_flashed_messages(with_categories=true) %}
+  {% if mensajes %}
+  <div class="mensajes">
+    {% for categoria, texto in mensajes %}
+      <div class="mensaje mensaje-{{ categoria }}">{{ texto }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+<main class="contenido">
+  {% block contenido %}{% endblock %}
+</main>
+
+<footer class="pie">
+  <span>{{ app_nombre }} · Sistema de identificación y priorización de brechas de capacidad sanitaria</span>
+  {% if filtros %}
+  <span class="pie-filtros">
+    {{ filtros.etiqueta_territorio() }} · {{ filtros.fecha_inicio }} a {{ filtros.fecha_fin }}
+  </span>
+  {% endif %}
+</footer>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

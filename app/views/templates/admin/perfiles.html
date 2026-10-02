@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block titulo %}Perfiles de priorización{% endblock %}
+{% block contenido %}
+<h1 class="titulo-pagina">{{ titulo }}</h1>
+<p class="frase">Los perfiles definen los ponderadores con los que se calcula el puntaje
+   de prioridad. Los cambios se aplican en el siguiente cálculo de ranking.</p>
+
+<table class="tabla tabla-datos">
+  <thead>
+    <tr><th>Perfil</th><th>Código</th><th class="num">Reglas</th><th class="num">Peso total</th>
+        <th class="num">Umb. crítico</th><th class="num">Umb. alto</th><th class="num">Umb. medio</th>
+        <th>Estado</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for p in perfiles %}
+    <tr>
+      <td><strong>{{ p.nombre }}</strong>{% if p.es_base %} <small>(base)</small>{% endif %}</td>
+      <td><code>{{ p.codigo }}</code></td>
+      <td class="num">{{ p.reglas_activas }}</td>
+      <td class="num">{{ p.peso_total|numero(1) }}</td>
+      <td class="num">{{ p.umbral_critico_pct }}</td>
+      <td class="num">{{ p.umbral_alto_pct }}</td>
+      <td class="num">{{ p.umbral_medio_pct }}</td>
+      <td>{{ 'Activo' if p.activo else 'Inactivo' }}</td>
+      <td><a href="{{ url_for('admin.perfil_detalle', id_perfil=p.id_perfil) }}">Reglas</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<section class="panel">
+  <h2>Crear perfil</h2>
+  <form method="post" action="{{ url_for('admin.perfil_nuevo') }}" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="campo">
+      <label for="codigo">Código</label>
+      <input type="text" id="codigo" name="codigo" required maxlength="60"
+             placeholder="EJ: VULNERABILIDAD">
+    </div>
+    <div class="campo">
+      <label for="nombre">Nombre</label>
+      <input type="text" id="nombre" name="nombre" required maxlength="120">
+    </div>
+    <div class="campo">
+      <label for="descripcion">Descripción</label>
+      <input type="text" id="descripcion" name="descripcion" maxlength="400">
+    </div>
+    <div class="campo">
+      <label for="umbral_critico">Umbral crítico (%)</label>
+      <input type="number" step="0.1" id="umbral_critico" name="umbral_critico" value="75">
+    </div>
+    <div class="campo">
+      <label for="umbral_alto">Umbral alto (%)</label>
+      <input type="number" step="0.1" id="umbral_alto" name="umbral_alto" value="50">
+    </div>
+    <div class="campo">
+      <label for="umbral_medio">Umbral medio (%)</label>
+      <input type="number" step="0.1" id="umbral_medio" name="umbral_medio" value="25">
+    </div>
+    <div class="campo acciones">
+      <button type="submit" class="boton">Crear perfil</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

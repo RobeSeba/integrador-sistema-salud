@@ -1,0 +1,11 @@
+﻿{% extends "base.html" %}
+{% block titulo %}Error interno{% endblock %}
+{% block contenido %}
+<div class="error-pagina">
+  <p class="error-codigo">500</p>
+  <h1>Error interno</h1>
+  <p>Ocurrió un error inesperado al procesar la solicitud.</p>
+  {% if mensaje %}<p class="error-detalle">{{ mensaje }}</p>{% endif %}
+  <a href="{{ url_for('tablero.panel') }}" class="boton">Ir al panel</a>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import estado_pill %}
+{% block titulo %}{{ carga.nombre_archivo }}{% endblock %}
+{% block contenido %}
+<h1 class="titulo-pagina">{{ carga.nombre_archivo }}</h1>
+<p class="subtitulo-establecimiento">Carga #{{ carga.id_carga }} · {{ tabla }} ·
+   {{ estado_pill(carga.estado) }}</p>
+
+<table class="tabla tabla-simple">
+  <tbody>
+    <tr><th>Fecha de carga</th><td>{{ carga.fecha_carga|fecha('con_hora') }}</td></tr>
+    <tr><th>Fecha del dato</th><td>{{ carga.fecha_dato|fecha }}</td></tr>
+    <tr><th>Periodo</th><td>{{ carga.fecha_inicio_periodo|fecha }}
+        a {{ carga.fecha_fin_periodo|fecha }}</td></tr>
+    <tr><th>Fuente</th><td>{{ carga.fuente }}</td></tr>
+    <tr><th>Modo de carga</th><td>{{ carga.modo_carga }}</td></tr>
+    <tr><th>Filas insertadas</th><td class="num">{{ carga.filas_insertadas|numero }}</td></tr>
+    <tr><th>Filas rechazadas</th><td class="num">{{ carga.filas_rechazadas|numero }}</td></tr>
+    <tr><th>Archivo almacenado</th><td><code>{{ carga.ruta_archivo or '—' }}</code></td></tr>
+    <tr><th>Hash SHA-256</th><td><code class="hash">{{ carga.hash_archivo or '—' }}</code></td></tr>
+    <tr><th>Mensaje</th><td>{{ carga.mensaje or '—' }}</td></tr>
+  </tbody>
+</table>
+
+<p class="frase"><a href="{{ url_for('admin.cargas') }}">← Volver al historial</a></p>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% from "_macros.html" import vacio %}
+{% block titulo %}Análisis territorial{% endblock %}
+
+{% block contenido %}
+<h1 class="titulo-pagina">{{ titulo }}</h1>
+{% set action_actual = url_for('analisis.territorio') %}
+{% include "_filtros.html" %}
+
+<nav class="pestanas">
+  {% for clave, etiqueta in niveles_territorio.items() %}
+  <a href="{{ url_filtros('analisis.territorio', nivel=clave) }}"
+     class="{{ 'activa' if nivel == clave }}">{{ etiqueta }}</a>
+  {% endfor %}
+</nav>
+
+<p class="frase">{{ filas|length }} {{ nivel_etiqueta|lower }} ·
+   <a href="{{ url_filtros('analisis.exportar', recurso='territorio', nivel=nivel, formato='csv') }}">CSV</a> ·
+   <a href="{{ url_filtros('analisis.exportar', recurso='territorio', nivel=nivel, formato='xlsx') }}">XLSX</a>
+</p>
+
+{% if filas %}
+<table class="tabla tabla-datos">
+  <thead>
+    <tr>
+      <th>Territorio</th>
+      <th class="num">Establec.</th>
+      <th class="num">Afiliados</th>
+      <th class="num">% rural</th>
+      <th class="num">Atenciones</th>
+      <th class="num">Camas oper.</th>
+      <th class="num">Afil./cama</th>
+      <th class="num">Ocupación</th>
+      <th class="num">Presión at.</th>
+      <th class="num">Inoperat.</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in filas %}
+    <tr>
+      <td><strong>{{ f.territorio }}</strong></td>
+      <td class="num">{{ f.establecimientos|numero }}</td>
+      <td class="num">{{ f.total_afiliados|numero }}</td>
+      <td class="num">{{ f.porc_rural|pct }}%</td>
+      <td class="num">{{ f.total_atenciones|numero }}</td>
+      <td class="num">{{ f.recursos_operativos|numero(1) }}</td>
+      <td class="num">{{ f.ratio_afiliados_cama|numero(1) }}</td>
+      <td class="num">
+        <span class="valor-ocupacion
+          {{ 'oc-critico' if (f.tasa_ocupacion or 0) >= 90 else ('oc-alerta' if (f.tasa_ocupacion or 0) >= 85 else '') }}">
+          {{ f.tasa_ocupacion|pct }}%</span>
+      </td>
+      <td class="num">{{ f.presion_atencion|numero(1) }}</td>
+      <td class="num">{{ f.tasa_inoperatividad|pct }}%</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}{{ vacio() }}{% endif %}
+
+{% if categorias %}
+<section class="panel">
+  <h2>Por categoría de establecimiento</h2>
+  <table class="tabla">
+    <thead><tr><th>Categoría</th><th class="num">Establecimientos</th>
+               <th class="num">Camas promedio</th><th class="num">Ocupación promedio</th></tr></thead>
+    <tbody>
+      {% for c in categorias %}
+      <tr>
+        <td>{{ c.categoria }}</td>
+        <td class="num">{{ c.establecimientos|numero }}</td>
+        <td class="num">{{ c.camas_promedio|numero(1) }}</td>
+        <td class="num">{{ c.ocupacion_promedio|pct }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

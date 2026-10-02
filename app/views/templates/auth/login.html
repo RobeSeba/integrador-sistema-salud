@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block titulo %}Iniciar sesión{% endblock %}
+{% block contenido %}
+<div class="login-envoltura">
+  <div class="login-tarjeta">
+    <div class="login-marca">
+      <span class="sigla sigla-grande">SIBS</span>
+      <h1>{{ app_titulo }}</h1>
+      <p>{{ app_subtitulo }}</p>
+    </div>
+
+    {% if error %}
+    <div class="mensaje mensaje-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="siguiente" value="{{ siguiente }}">
+      <div class="campo">
+        <label for="usuario">Usuario</label>
+        <input type="text" id="usuario" name="usuario" required autofocus
+               value="{{ usuario_input }}">
+      </div>
+      <div class="campo">
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" name="password" required>
+      </div>
+      <button type="submit" class="boton boton-ancho">Ingresar</button>
+    </form>
+
+    <details class="login-ayuda">
+      <summary>Roles del sistema</summary>
+      <ul>
+        {% for clave, rol in roles_disponibles.items() %}
+        <li><strong>{{ rol.nombre }}</strong> — {{ rol.descripcion }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  </div>
+</div>
+{% endblock %}

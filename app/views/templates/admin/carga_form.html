@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar carga{% endblock %}
+{% block contenido %}
+<h1 class="titulo-pagina">{{ titulo }}</h1>
+<p class="frase">Formatos aceptados: {{ extensiones|join(', ') }} ·
+   tamaño máximo {{ tamano_maximo_mb }} MB.</p>
+
+<form method="post" enctype="multipart/form-data" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="campo">
+    <label for="archivo">Archivo</label>
+    <input type="file" id="archivo" name="archivo" required
+           accept="{{ extensiones|join(',') }}">
+  </div>
+  <div class="campo">
+    <label for="tabla_destino">Tabla destino</label>
+    <select id="tabla_destino" name="tabla_destino" required>
+      {% for clave, etiqueta in tablas.items() %}
+      <option value="{{ clave }}">{{ etiqueta }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="campo">
+    <label for="fuente">Fuente</label>
+    <input type="text" id="fuente" name="fuente" placeholder="RENIES, SIS, DIRIS...">
+  </div>
+  <div class="campo">
+    <label for="fecha_dato">Fecha del dato</label>
+    <input type="date" id="fecha_dato" name="fecha_dato" required>
+  </div>
+  <div class="campo">
+    <label for="fecha_inicio_periodo">Inicio del periodo (opcional)</label>
+    <input type="date" id="fecha_inicio_periodo" name="fecha_inicio_periodo">
+  </div>
+  <div class="campo">
+    <label for="fecha_fin_periodo">Fin del periodo (opcional)</label>
+    <input type="date" id="fecha_fin_periodo" name="fecha_fin_periodo">
+  </div>
+  <div class="campo">
+    <label for="modo_carga">Modo de carga</label>
+    <select id="modo_carga" name="modo_carga">
+      <option value="INCREMENTAL">Incremental (agrega al histórico)</option>
+      <option value="SOBRESCRIBIR">Sobrescribir el periodo</option>
+    </select>
+  </div>
+  <div class="campo acciones">
+    <button type="submit" class="boton">Registrar archivo</button>
+    <a href="{{ url_for('admin.cargas') }}" class="boton boton-linea">Cancelar</a>
+  </div>
+</form>
+
+<section class="panel">
+  <h2>Cómo se aplica el archivo</h2>
+  <p>Al registrar el archivo se guarda su hash y queda en estado
+     <strong>VALIDADO</strong>. La aplicación de los datos la realiza el
+     administrador mediante los procedimientos almacenados del módulo de
+     análisis, de modo que cada cambio queda auditado.</p>
+</section>
+{% endblock %}

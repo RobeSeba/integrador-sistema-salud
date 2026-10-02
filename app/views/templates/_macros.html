@@ -1,0 +1,130 @@
+{% macro kpi(etiqueta, valor, nota=None, tono='neutro') %}
+<div class="kpi kpi-{{ tono }}">
+  <p class="kpi-etiqueta">{{ etiqueta }}</p>
+  <p class="kpi-valor">{{ valor }}</p>
+  {% if nota %}<p class="kpi-nota">{{ nota }}</p>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro estado_pill(estado) %}
+{% set estados = {
+  'APLICADO': ('ok', 'Aplicado'),
+  'VALIDADO': ('info', 'Validado'),
+  'PENDIENTE': ('aviso', 'Pendiente'),
+  'ERROR': ('error', 'Error'),
+} %}
+{% set tono, texto = estados.get(estado, ('neutro', estado)) %}
+<span class="pill pill-{{ tono }}">{{ texto }}</span>
+{% endmacro %}
+
+{% macro vacio(mensaje='Sin datos para los filtros seleccionados') %}
+<p class="vacio">{{ mensaje }}</p>
+{% endmacro %}
+
+{% macro barra(valor, total, color='#0d9488') %}
+{% set pct = (valor / total * 100) if total else 0 %}
+<div class="barra"><span style="width: {{ '%.1f'|format(pct) }}%; background: {{ color }}"></span></div>
+{% endmacro %}
+
+{% macro color_categoria(clave) %}
+{% set colores = {
+  'CRITICA': '#dc2626', 'ALTA': '#f97316', 'MEDIA': '#eab308',
+  'BAJA': '#16a34a', 'NO_EVALUABLE': '#94a3b8',
+} %}
+{{ colores.get(clave, '#64748b') }}
+{% endmacro %}
+
+{#
+  Grafico de barras horizontales en SVG puro: no depende de ninguna libreria
+  externa ni de CDN. Recibe una lista de dicts con 'etiqueta' y 'valor'.
+
+  El ancho maximo (max) se calcula sobre los datos, salvo que se indique uno,
+  para que las barras comparen entre si y no dependan de la escala global.
+#}
+{% macro grafico_barras(datos, clave_etiqueta='etiqueta', clave_valor='valor',
+                         max=None, color='#0d9488', alto=16, unidad='',
+                         formato=1000) %}
+{% if datos %}
+  {# Jinja no tiene comprehension: el maximo se recorre con un namespace. #}
+  {% set ns = namespace(maximo = max or 0) %}
+  {% if not ns.maximo %}
+    {% for d in datos %}
+      {% set valor = d[clave_valor] or 0 %}
+      {% if valor > ns.maximo %}{% set ns.maximo = valor %}{% endif %}
+    {% endfor %}
+  {% endif %}
+  {% set maximo = ns.maximo if ns.maximo > 0 else 1 %}
+  <svg class="grafico" viewBox="0 0 620 {{ (datos | length) * (alto + 10) + 6 }}"
+       role="img" aria-label="Grafico de barras" preserveAspectRatio="xMinYMin meet">
+    {% for d in datos %}
+      {% set valor = d[clave_valor] or 0 %}
+      {% set ancho = (valor / maximo * 430) %}
+      {% set y = loop.index0 * (alto + 10) %}
+      <text x="0" y="{{ y + alto * 0.78 }}" class="gl-eje">{{ d[clave_etiqueta] }}</text>
+      <rect x="175" y="{{ y }}" width="{{ '%.1f'|format(ancho) }}" height="{{ alto }}"
+            rx="3" fill="{{ color }}" opacity="0.85">
+        <title>{{ d[clave_etiqueta] }}: {{ valor|numero(formato) }}{{ unidad }}</title>
+      </rect>
+      <text x="{{ 181 + ancho }}" y="{{ y + alto * 0.78 }}" class="gl-valor">
+        {{ valor|numero(formato) }}{{ unidad }}
+      </text>
+    {% endfor %}
+  </svg>
+{% endif %}
+{% endmacro %}
+
+{#
+  Grafico de lineas SVG para series temporales. Cada serie es una lista de
+  {#
+  Grafico de lineas SVG para series temporales. Cada serie es una lista de
+  numeros alineada con 'etiquetas'. Se normaliza cada serie sobre su propio
+  minimo y maximo: lo que interesa es la tendencia, no comparar magnitudes
+  entre indicadores de unidades distintas.
+
+  Con un solo punto no hay linea que dibujar, asi que la macro no renderiza
+  nada: un periodo de un dia o de un mes deja la tabla de abajo como unica
+  fuente. Se divide siempre entre (n - 1) con n >= 2.
+#}
+{% macro grafico_lineas(etiquetas, series, alto=170, ancho=620, colores=['#0d9488', '#7c3aed', '#ea580c']) %}
+{% set n = etiquetas | length if etiquetas else 0 %}
+{% if n >= 2 and series and series[0] %}
+  {% set den = n - 1 %}
+  <svg class="grafico" viewBox="0 0 {{ ancho }} {{ alto }}"
+       role="img" aria-label="Grafico de lineas">
+    {% for i in range(0, 5) %}
+      {% set y = 10 + (alto - 30) * i / 4 %}
+      <line x1="0" y1="{{ '%.1f'|format(y) }}" x2="{{ ancho }}" y2="{{ '%.1f'|format(y) }}"
+            stroke="#e2e8f0" stroke-width="1"/>
+    {% endfor %}
+    {% for serie in series %}
+      {% set valores = serie.valores | reject('none') | list %}
+      {% if valores | length > 1 %}
+        {% set vmin = valores | min %}
+        {% set vmax = valores | max %}
+        {% set rango = (vmax - vmin) if (vmax - vmin) > 0 else 1 %}
+        {% set puntos = [] %}
+        {% for v in serie.valores %}
+          {% set x = (loop.index0 / den * (ancho - 8)) + 4 %}
+          {% set y = (alto - 20) - ((v or 0) - vmin) / rango * (alto - 40) %}
+          {% set _ = puntos.append('%.1f,%.1f' % (x, y)) %}
+        {% endfor %}
+        <polyline points="{{ puntos | join(' ') }}" fill="none"
+                  stroke="{{ colores[loop.index0 % colores | length] }}"
+                  stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <title>{{ serie.nombre }}</title>
+      {% endif %}
+    {% endfor %}
+    {% for e in etiquetas %}
+      {% if loop.index0 % 2 == 0 or loop.index0 == n %}
+        <text x="{{ '%.1f'|format((loop.index0 / den * (ancho - 8)) + 4) }}"
+              y="{{ alto - 5 }}" class="gl-eje gl-centro">{{ e }}</text>
+      {% endif %}
+    {% endfor %}
+  </svg>
+  <p class="leyenda">
+    {% for serie in series %}
+      <span><i style="background: {{ colores[loop.index0 % colores | length] }}"></i>{{ serie.nombre }}</span>
+    {% endfor %}
+  </p>
+{% endif %}
+{% endmacro %}

@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block titulo %}{{ perfil.nombre }}{% endblock %}
+{% block contenido %}
+<h1 class="titulo-pagina">{{ perfil.nombre }}</h1>
+<p class="subtitulo-establecimiento"><code>{{ perfil.codigo }}</code>
+  {{ perfil.descripcion or '' }} · {{ reglas|length }} regla(s) ·
+  peso total activo {{ peso_total|numero(1) }}</p>
+
+<section class="panel">
+  <h2>Parámetros del perfil</h2>
+  <form method="post" action="{{ url_for('admin.perfil_editar', id_perfil=perfil.id_perfil) }}"
+        class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="campo">
+      <label for="nombre">Nombre</label>
+      <input type="text" id="nombre" name="nombre" value="{{ perfil.nombre }}" required>
+    </div>
+    <div class="campo">
+      <label for="descripcion">Descripción</label>
+      <input type="text" id="descripcion" name="descripcion" value="{{ perfil.descripcion or '' }}">
+    </div>
+    <div class="campo">
+      <label for="umbral_critico">Umbral crítico (%)</label>
+      <input type="number" step="0.1" id="umbral_critico" name="umbral_critico"
+             value="{{ perfil.umbral_critico_pct }}">
+    </div>
+    <div class="campo">
+      <label for="umbral_alto">Umbral alto (%)</label>
+      <input type="number" step="0.1" id="umbral_alto" name="umbral_alto"
+             value="{{ perfil.umbral_alto_pct }}">
+    </div>
+    <div class="campo">
+      <label for="umbral_medio">Umbral medio (%)</label>
+      <input type="number" step="0.1" id="umbral_medio" name="umbral_medio"
+             value="{{ perfil.umbral_medio_pct }}">
+    </div>
+    <div class="campo">
+      <label class="casilla">
+        <input type="checkbox" name="activo" value="1" {{ 'checked' if perfil.activo }}> Activo
+      </label>
+    </div>
+    <div class="campo acciones">
+      <button type="submit" class="boton">Guardar parámetros</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Reglas y ponderadores</h2>
+
+  {# Un formulario por regla, declarado fuera de la tabla: HTML no permite
+     <form> dentro de <tr>. Los campos lo referencian con el atributo form. #}
+  {% for r in reglas %}
+  <form id="regla-{{ r.id_regla }}" method="post"
+        action="{{ url_for('admin.regla_actualizar', id_regla=r.id_regla) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="id_perfil" value="{{ perfil.id_perfil }}">
+  </form>
+  <form id="regla-borrar-{{ r.id_regla }}" method="post"
+        action="{{ url_for('admin.regla_eliminar', id_regla=r.id_regla) }}"
+        onsubmit="return confirm('¿Eliminar la regla {{ r.nombre }}?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="id_perfil" value="{{ perfil.id_perfil }}">
+  </form>
+  {% endfor %}
+
+  <table class="tabla tabla-datos">
+    <thead>
+      <tr><th>Indicador</th><th class="num">Peso</th><th class="num">Mín</th>
+          <th class="num">Máx</th><th>Dirección</th><th>Oblig.</th><th>Activa</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for r in reglas %}
+      <tr>
+        <td><strong>{{ r.nombre }}</strong><br><code>{{ r.codigo }}</code></td>
+        <td class="num">
+          <input form="regla-{{ r.id_regla }}" type="number" step="0.1" name="peso"
+                 value="{{ r.peso }}" size="5">
+        </td>
+        <td class="num">
+          <input form="regla-{{ r.id_regla }}" type="number" step="0.1" name="umbral_minimo"
+                 value="{{ r.umbral_minimo if r.umbral_minimo is not none else '' }}" size="5">
+        </td>
+        <td class="num">
+          <input form="regla-{{ r.id_regla }}" type="number" step="0.1" name="umbral_maximo"
+                 value="{{ r.umbral_maximo if r.umbral_maximo is not none else '' }}" size="5">
+        </td>
+        <td>
+          <select form="regla-{{ r.id_regla }}" name="direccion">
+            <option value="MAYOR" {{ 'selected' if r.direccion == 'MAYOR' }}>Mayor es peor</option>
+            <option value="MENOR" {{ 'selected' if r.direccion == 'MENOR' }}>Menor es peor</option>
+          </select>
+        </td>
+        <td class="centro">
+          <input form="regla-{{ r.id_regla }}" type="checkbox" name="obligatorio" value="1"
+                 {{ 'checked' if r.obligatorio }}>
+        </td>
+        <td class="centro">
+          <input form="regla-{{ r.id_regla }}" type="checkbox" name="activo" value="1"
+                 {{ 'checked' if r.activo }}>
+        </td>
+        <td class="acciones-celda">
+          <button form="regla-{{ r.id_regla }}" type="submit" class="enlace">Guardar</button>
+          <button form="regla-borrar-{{ r.id_regla }}" type="submit"
+                  class="enlace enlace-peligro">Eliminar</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Agregar regla</h2>
+  <form method="post" action="{{ url_for('admin.regla_nueva', id_perfil=perfil.id_perfil) }}"
+        class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="campo">
+      <label for="codigo">Indicador</label>
+      <select id="codigo" name="codigo" required>
+        {% for clave, etiqueta in catalogo_indicadores.items() %}
+        <option value="{{ clave }}">{{ etiqueta }}</option>
+        {% endfor %}
+      </select>
+      <p class="ayuda">Solo se admiten indicadores que el motor de ranking
+        sabe calcular; una regla con otro nombre se descartaria al calcular.</p>
+    </div>
+    <div class="campo">
+      <label for="peso_regla">Peso</label>
+      <input type="number" step="0.1" min="0" id="peso_regla" name="peso" value="10" required>
+    </div>
+    <div class="campo">
+      <label for="direccion">Dirección</label>
+      <select id="direccion" name="direccion">
+        <option value="MAYOR">Mayor es peor</option>
+        <option value="MENOR">Menor es peor</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label for="umbral_min_regla">Umbral mínimo</label>
+      <input type="number" step="0.01" id="umbral_min_regla" name="umbral_minimo"
+             placeholder="0 = sin normalizar">
+    </div>
+    <div class="campo">
+      <label for="umbral_max_regla">Umbral máximo</label>
+      <input type="number" step="0.01" id="umbral_max_regla" name="umbral_maximo"
+             placeholder="100 = sin normalizar">
+    </div>
+    <div class="campo">
+      <label class="casilla">
+        <input type="checkbox" name="obligatorio" value="1"> Obligatoria
+      </label>
+      <p class="ayuda">Si falta el dato, el establecimiento queda
+        NO_EVALUABLE en lugar de recibir un puntaje sin sustento.</p>
+    </div>
+    <div class="campo acciones">
+      <button type="submit" class="boton">Agregar regla</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Duplicar perfil</h2>
+  <form method="post" action="{{ url_for('admin.perfil_duplicar', id_perfil=perfil.id_perfil) }}"
+        class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="campo">
+      <label for="codigo_nuevo">Código nuevo</label>
+      <input type="text" id="codigo_nuevo" name="codigo" required maxlength="60">
+    </div>
+    <div class="campo">
+      <label for="nombre_nuevo">Nombre nuevo</label>
+      <input type="text" id="nombre_nuevo" name="nombre" required maxlength="120">
+    </div>
+    <div class="campo acciones">
+      <button type="submit" class="boton">Duplicar con sus reglas</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

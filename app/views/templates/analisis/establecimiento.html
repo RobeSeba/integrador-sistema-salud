@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% from "_macros.html" import kpi, vacio %}
+{% block titulo %}{{ ficha.nombre_establecimiento }}{% endblock %}
+
+{% block contenido %}
+<nav class="migas">
+  <a href="{{ url_for('analisis.ranking') }}">Ranking</a> /
+  <span>{{ ficha.nombre_establecimiento }}</span>
+</nav>
+
+<h1 class="titulo-pagina">{{ ficha.nombre_establecimiento or ('IPRESS ' ~ ficha.codigo_ipress) }}</h1>
+<p class="subtitulo-establecimiento">
+  {{ ficha.region }}{% if ficha.provincia %} · {{ ficha.provincia }}{% endif %}
+  {% if ficha.distrito %} · {{ ficha.distrito }}{% endif %} ·
+  {{ ficha.categoria }} · {{ ficha.nivel }} · {{ ficha.institucion }}
+  {% if ficha.ubigeo %} · Ubigeo {{ ficha.ubigeo }}{% endif %}
+</p>
+
+<section class="kpis">
+  {{ kpi('Afiliados', ficha.afiliados|numero,
+         'corte ' ~ (ficha.fecha_afiliados|fecha) if ficha.fecha_afiliados else 'sin corte') }}
+  {{ kpi('Atenciones', ficha.total_atenciones|numero, 'en el periodo') }}
+  {{ kpi('Recursos operativos', ficha.recursos_operativos|numero(1),
+         'de ' ~ (ficha.recursos_instalados|numero(1)) ~ ' instalados') }}
+  {{ kpi('Ocupación', ficha.tasa_ocupacion|pct ~ '%',
+         'pico ' ~ (ficha.pico_ocupacion|pct) ~ '%',
+         'critico' if (ficha.tasa_ocupacion or 0) >= 90 else
+         ('alerta' if (ficha.tasa_ocupacion or 0) >= 85 else 'ok')) }}
+  {{ kpi('Afiliados/cama', ficha.ratio_afiliados_cama|numero(1)) }}
+  {{ kpi('Presión de atención', ficha.presion_atencion|numero(1),
+         'por mil afiliados') }}
+</section>
+
+<div class="dos-columnas">
+  <section class="panel">
+    <h2>Afiliación (último corte)</h2>
+    {% if poblacion %}
+    <table class="tabla tabla-simple">
+      <tbody>
+        <tr><th>Total</th><td class="num">{{ poblacion.total_afiliados|numero }}</td></tr>
+        <tr><th>Hombres / Mujeres</th>
+            <td class="num">{{ poblacion.afiliados_hombres|numero }} / {{ poblacion.afiliados_mujeres|numero }}</td></tr>
+        <tr><th>0-4 años</th><td class="num">{{ poblacion.afiliados_0_4_pediatrico|numero }}</td></tr>
+        <tr><th>5-14 años</th><td class="num">{{ poblacion.afiliados_5_14|numero }}</td></tr>
+        <tr><th>15-59 años</th><td class="num">{{ poblacion.afiliados_15_59_adultos|numero }}</td></tr>
+        <tr><th>60+ años</th><td class="num">{{ poblacion.afiliados_60_mas_adulto_mayor|numero }}</td></tr>
+        <tr><th>Mujeres en edad fértil</th>
+            <td class="num">{{ poblacion.afiliados_mujeres_edad_fertil|numero }}</td></tr>
+        <tr><th>Urbano / Rural</th>
+            <td class="num">{{ poblacion.afiliados_urbano|numero }} / {{ poblacion.afiliados_rural|numero }}</td></tr>
+        <tr><th>VRAEM</th><td class="num">{{ poblacion.afiliados_vraem|numero }}</td></tr>
+      </tbody>
+    </table>
+    {% else %}{{ vacio('Sin registro de afiliación para este establecimiento.') }}{% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Atenciones por grupo etario</h2>
+    {% if atenciones %}
+    <table class="tabla tabla-simple">
+      <tbody>
+        <tr><th>Total</th><td class="num">{{ atenciones.total|numero }}</td></tr>
+        <tr><th>Hombres / Mujeres</th>
+            <td class="num">{{ atenciones.hombres|numero }} / {{ atenciones.mujeres|numero }}</td></tr>
+        <tr><th>0-4</th><td class="num">{{ atenciones.edad_00_04|numero }}</td></tr>
+        <tr><th>5-11</th><td class="num">{{ atenciones.edad_05_11|numero }}</td></tr>
+        <tr><th>12-17</th><td class="num">{{ atenciones.edad_12_17|numero }}</td></tr>
+        <tr><th>18-29</th><td class="num">{{ atenciones.edad_18_29|numero }}</td></tr>
+        <tr><th>30-59</th><td class="num">{{ atenciones.edad_30_59|numero }}</td></tr>
+        <tr><th>60+</th><td class="num">{{ atenciones.edad_60_mas|numero }}</td></tr>
+        <tr><th>Emergencia</th><td class="num">{{ atenciones.emergencia|numero }}</td></tr>
+        <tr><th>Consulta externa</th><td class="num">{{ atenciones.consulta_externa|numero }}</td></tr>
+      </tbody>
+    </table>
+    {% else %}{{ vacio('Sin atenciones en el periodo.') }}{% endif %}
+  </section>
+</div>
+
+<section class="panel">
+  <h2>Capacidad y ocupación diaria</h2>
+  {% if capacidad %}
+  <table class="tabla tabla-datos">
+    <thead>
+      <tr><th>Fecha</th><th class="num">Camas</th><th class="num">Operativas</th>
+          <th class="num">Ocupadas</th><th class="num">Disponibles</th>
+          <th class="num">Ocupación</th>
+          <th class="num">UCI</th><th class="num">UCI oc.</th>
+          <th class="num">Hosp.</th><th class="num">Vent.</th>
+          <th class="num">Vent. uso</th><th>Alerta</th></tr>
+    </thead>
+    <tbody>
+      {% for d in capacidad %}
+      <tr>
+        <td>{{ d.fecha_corte|fecha }}</td>
+        <td class="num">{{ d.total_camas|numero }}</td>
+        <td class="num">{{ d.total_camas_operativas|numero }}</td>
+        <td class="num">{{ d.total_camas_ocupadas|numero }}</td>
+        <td class="num">{{ d.total_camas_disponibles|numero }}</td>
+        <td class="num">{{ d.tasa_ocupacion_global|pct }}%</td>
+        <td class="num">{{ d.uci_operativas|numero }}</td>
+        <td class="num">{{ d.tasa_ocupacion_uci|pct }}%</td>
+        <td class="num">{{ d.hosp_operativas|numero }}</td>
+        <td class="num">{{ d.vent_operativos|numero }}</td>
+        <td class="num">{{ d.tasa_uso_ventiladores|pct }}%</td>
+        <td><span class="pill pill-{{ 'error' if d.nivel_alerta == 'ROJO' else ('aviso' if d.nivel_alerta == 'AMARILLO' else 'ok') }}">
+          {{ d.nivel_alerta }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}{{ vacio('Sin reportes de capacidad en el periodo.') }}{% endif %}
+</section>
+{% endblock %}

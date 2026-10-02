@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_macros.html" import vacio %}
+
+{# Los procedimientos devuelven tuplas heterogeneas; esta macro evita tener que
+   adivinar el tipo en cada celda. #}
+{% macro celda(valor) -%}
+  {%- if valor is none -%}<td>-</td>
+  {%- elif valor is boolean -%}<td>{{ 'SI' if valor else 'NO' }}</td>
+  {%- elif valor is integer -%}<td class="num">{{ valor|numero }}</td>
+  {%- elif valor is float -%}<td class="num">{{ valor|numero(2) }}</td>
+  {%- elif valor is string and valor|length >= 8 and valor[:2] == '20' and valor[4:5] == '-' -%}<td>{{ valor|texto }}</td>
+  {%- else -%}<td>{{ valor|texto }}</td>{%- endif -%}
+{%- endmacro %}
+
+{% block titulo %}{{ resultado.titulo }}{% endblock %}
+
+{% block contenido %}
+<h1 class="titulo-pagina">{{ resultado.titulo }}</h1>
+{% set action_actual = url_for('analisis.procedimiento', clave=clave) %}
+{% include "_filtros.html" %}
+
+<section class="panel">
+  <h2>Procedimiento</h2>
+  <p class="frase">{{ resultado.descripcion }}</p>
+  <table class="tabla tabla-simple">
+    <tbody>
+      {% for nombre, valor in resultado.parametros.items() %}
+      <tr><th>{{ nombre }}</th><td>{{ valor if valor is not none else '—' }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <details>
+    <summary>Invocación</summary>
+    <code class="bloque-sql">{{ resultado.consulta_sql }}</code>
+  </details>
+</section>
+
+{% for conjunto in resultado.resultados %}
+<section class="panel">
+  <h2>{{ conjunto.nombre }}</h2>
+  {% if conjunto.filas %}
+  <table class="tabla tabla-datos">
+    <thead>
+      <tr>{% for columna in conjunto.columnas %}<th>{{ columna }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      {% for fila in conjunto.filas %}
+      <tr>
+        {% for valor in fila %}{{ celda(valor) }}{% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="frase">{{ conjunto.total_filas }} fila{{ '' if conjunto.total_filas == 1 else 's' }}.</p>
+  {% else %}{{ vacio('El procedimiento no devolvió filas con estos parámetros.') }}{% endif %}
+</section>
+{% endfor %}
+{% endblock %}

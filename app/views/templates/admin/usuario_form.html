@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block contenido %}
+<h1 class="titulo-pagina">{{ titulo }}</h1>
+
+<form method="post" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="campo">
+    <label for="usuario">Usuario</label>
+    <input type="text" id="usuario" name="usuario" required maxlength="60"
+           value="{{ formulario.usuario or '' }}" {{ 'readonly' if formulario.usuario }}>
+  </div>
+  <div class="campo">
+    <label for="nombre_completo">Nombre completo</label>
+    <input type="text" id="nombre_completo" name="nombre_completo" required
+           value="{{ formulario.nombre_completo or '' }}">
+  </div>
+  <div class="campo">
+    <label for="rol">Rol</label>
+    <select id="rol" name="rol" required>
+      {% for clave, rol in roles.items() %}
+      <option value="{{ clave }}" {{ 'selected' if formulario.rol == clave }}>
+        {{ rol.nombre }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="campo">
+    <label for="email">Correo</label>
+    <input type="email" id="email" name="email" value="{{ formulario.email or '' }}">
+  </div>
+  <div class="campo">
+    <label for="cargo">Cargo</label>
+    <input type="text" id="cargo" name="cargo" value="{{ formulario.cargo or '' }}">
+  </div>
+  <div class="campo">
+    <label for="password">
+      {{ 'Nueva contraseña (opcional)' if formulario.usuario else 'Contraseña' }}</label>
+    <input type="password" id="password" name="password" autocomplete="new-password"
+           {{ 'required' if not formulario.usuario }}>
+  </div>
+  <div class="campo">
+    <label class="casilla">
+      <input type="checkbox" name="activo" value="1"
+             {{ 'checked' if formulario.activo is not defined or formulario.activo }}>
+      Activo
+    </label>
+  </div>
+  <div class="campo acciones">
+    <button type="submit" class="boton">Guardar</button>
+    <a href="{{ url_for('admin.usuarios') }}" class="boton boton-linea">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "_macros.html" import kpi, vacio %}
+{% block titulo %}Evolución temporal{% endblock %}
+
+{% block contenido %}
+<h1 class="titulo-pagina">{{ titulo }}</h1>
+{% set action_actual = url_for('analisis.evolucion') %}
+{% include "_filtros.html" %}
+
+<section class="panel">
+  <h2>Serie agregada</h2>
+  <p class="frase">
+    <a href="{{ url_filtros('analisis.exportar', recurso='serie', formato='csv') }}">CSV</a> ·
+    <a href="{{ url_filtros('analisis.exportar', recurso='serie', formato='xlsx') }}">XLSX</a>
+  </p>
+  {% if series %}
+  <table class="tabla tabla-datos">
+    <thead>
+      <tr>
+        <th>Periodo</th>
+        <th class="num">Afiliados</th><th class="num">Rural</th>
+        <th class="num">Atenciones</th><th class="num">Emergencia</th>
+        <th class="num">Camas oper.</th><th class="num">Camasdisp.</th>
+        <th class="num">Camas oc.</th><th class="num">Ocupación</th>
+        <th class="num">Pico</th><th class="num">Vent. oper.</th>
+        <th class="num">Vent. inop.</th><th class="num">Días ≥ umbral</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in series %}
+      <tr>
+        <td>{{ s.periodo }}</td>
+        <td class="num">{{ s.total_afiliados|numero }}</td>
+        <td class="num">{{ s.afiliados_rural|numero }}</td>
+        <td class="num">{{ s.total_atenciones|numero }}</td>
+        <td class="num">{{ s.atenciones_emergencia|numero }}</td>
+        <td class="num">{{ s.camas_operativas|numero(1) }}</td>
+        <td class="num">{{ s.camas_disponibles|numero(1) }}</td>
+        <td class="num">{{ s.camas_ocupadas|numero(1) }}</td>
+        <td class="num">{{ s.tasa_ocupacion|pct }}%</td>
+        <td class="num">{{ s.pico_ocupacion|pct }}%</td>
+        <td class="num">{{ s.vent_operativos|numero(1) }}</td>
+        <td class="num">{{ s.vent_inoperativos|numero(1) }}</td>
+        <td class="num">{{ s.dias_sobre_umbral|numero }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}{{ vacio() }}{% endif %}
+</section>
+
+{% if alertas %}
+<section class="panel">
+  <h2>Registros por nivel de alerta</h2>
+  <table class="tabla">
+    <thead><tr><th>Nivel</th><th class="num">Registros</th><th class="num">Establecimientos</th></tr></thead>
+    <tbody>
+      {% for a in alertas %}
+      <tr><td>{{ a.nivel_alerta }}</td>
+          <td class="num">{{ a.registros|numero }}</td>
+          <td class="num">{{ a.establecimientos|numero }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

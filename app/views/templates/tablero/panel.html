@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% from "_macros.html" import kpi, vacio, grafico_barras, grafico_lineas %}
+{% block titulo %}Panel de indicadores{% endblock %}
+
+{% block contenido %}
+<h1 class="titulo-pagina">{{ titulo }}</h1>
+{% set action_actual = url_for('tablero.panel') %}
+{% include "_filtros.html" %}
+
+{% if g.filtros_error %}
+<div class="mensaje mensaje-error">{{ g.filtros_error }}</div>
+{% endif %}
+
+<section class="kpis">
+  {{ kpi('Afiliados SIS', global.total_afiliados|numero, 'plan ' ~ filtros.nombre_plan) }}
+  {{ kpi('Atenciones', global.total_atenciones|numero, 'en el periodo') }}
+  {{ kpi('Presión de atención', global.presion_atencion|numero(1, ' /mil'), 'atenciones por mil afiliados') }}
+  {{ kpi('Ocupación global', global.tasa_ocupacion|pct ~ '%',
+         global.dias_sobre_umbral|numero ~ ' días sobre el umbral',
+         'critico' if (global.tasa_ocupacion or 0) >= 90 else 'alerta') }}
+  {{ kpi('Ratio afiliados/cama', global.ratio_afiliados_cama|numero(1),
+         'presión sobre la capacidad instalada') }}
+  {{ kpi('Población vulnerable', global.porc_vulnerable|pct ~ '%',
+         '0-4 años, 60+ y mujeres en edad fértil') }}
+</section>
+
+<section class="panel">
+  <h2>Territorio analizado</h2>
+  <p class="frase">{{ filtros.etiqueta_territorio() }} ·
+     {{ filtros.fecha_inicio }} a {{ filtros.fecha_fin }} ·
+     {{ global.ipress_territorio|numero }} establecimientos
+     ({{ global.ipress_con_afiliados|numero }} con afiliación,
+      {{ global.ipress_con_capacidad|numero }} con capacidad)</p>
+</section>
+
+<div class="dos-columnas">
+  <section class="panel">
+    <h2>Brecha de capacidad por territorio</h2>
+    <p class="ayuda">Top 10 por razón de afiliados por cama operativa.</p>
+    {% if brechas %}
+    {{ grafico_barras(brechas_grafico, color='#b91c1c', formato=1) }}
+    <table class="tabla">
+      <thead>
+        <tr><th>Región</th><th class="num">Afiliados</th>
+            <th class="num">Camas oper.</th><th class="num">Afil./cama</th>
+            <th class="num">Ocupación</th></tr>
+      </thead>
+      <tbody>
+        {% for f in brechas %}
+        <tr>
+          <td>{{ f.territorio }}</td>
+          <td class="num">{{ f.total_afiliados|numero }}</td>
+          <td class="num">{{ f.recursos_operativos|numero(1) }}</td>
+          <td class="num">{{ f.ratio_afiliados_cama|numero(1) }}</td>
+          <td class="num">{{ f.tasa_ocupacion|pct }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}{{ vacio() }}{% endif %}
+    <a class="enlace" href="{{ url_for('analisis.territorio') }}">Ver análisis territorial completo →</a>
+  </section>
+
+  <section class="panel">
+    <h2>Composición de afiliados</h2>
+    {% if planes %}
+      {% set p = planes[0] %}
+    <table class="tabla tabla-simple">
+      <tbody>
+        <tr><th>Total afiliados</th><td class="num">{{ p.total|numero }}</td></tr>
+        <tr><th>SIS gratuito</th><td class="num">{{ p.gratuito|numero }}</td></tr>
+        <tr><th>SIS independiente</th><td class="num">{{ p.independiente|numero }}</td></tr>
+        <tr><th>SIS para todos</th><td class="num">{{ p.para_todos|numero }}</td></tr>
+        <tr><th>Urbano / Rural</th>
+            <td class="num">{{ p.urbano|numero }} / {{ p.rural|numero }}</td></tr>
+        <tr><th>VRAEM</th><td class="num">{{ p.vraem|numero }}</td></tr>
+      </tbody>
+    </table>
+    <p class="frase">Rural: {{ global.porc_rural|pct }}% de los afiliados.</p>
+    {% else %}{{ vacio() }}{% endif %}
+  </section>
+</div>
+
+<section class="panel">
+  <h2>Estado de alertas de ocupación</h2>
+  {% if alertas %}
+  <div class="tarjetas-alerta">
+    {% for a in alertas %}
+    <div class="alerta alerta-{{ a.nivel_alerta|lower|replace(' ', '-') }}">
+      <p class="alerta-nivel">{{ a.nivel_alerta }}</p>
+      <p class="alerta-cifra">{{ a.registros|numero }}</p>
+      <p class="alerta-nota">registros · {{ a.establecimientos|numero }} EESS</p>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}{{ vacio() }}{% endif %}
+  <a class="enlace" href="{{ url_for('analisis.alertas') }}">Ir a monitoreo de alertas →</a>
+</section>
+
+<div class="dos-columnas">
+  <section class="panel">
+    <h2>Ocupación crítica sostenida</h2>
+    <p class="ayuda">Registros sobre el umbral de ocupación configurado.</p>
+    {% if criticos %}
+    <table class="tabla">
+      <thead><tr><th>Establecimiento</th><th>Fecha</th><th class="num">Ocupación</th></tr></thead>
+      <tbody>
+        {% for r in criticos[:8] %}
+        <tr>
+          <td>{{ r.nombre_establecimiento }}</td>
+          <td>{{ r.fecha_corte|fecha }}</td>
+          <td class="num">{{ r.tasa_ocupacion_global|pct }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}{{ vacio('Sin registros sobre el umbral en el periodo.') }}{% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Inoperatividad de recursos</h2>
+    <p class="ayuda">Ventiladores, UCI y hospitalización inoperativos.</p>
+    {% if inoperativos %}
+    <table class="tabla">
+      <thead><tr><th>Establecimiento</th><th>Fecha</th><th class="num">Inoperativos</th></tr></thead>
+      <tbody>
+        {% for r in inoperativos[:8] %}
+        <tr>
+          <td>{{ r.nombre_establecimiento }}</td>
+          <td>{{ r.fecha_corte|fecha }}</td>
+          <td class="num">{{ r.vent_inoperativos + r.uci_inoperativas + r.hosp_inoperativas }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}{{ vacio('Sin inoperatividad registrada en el periodo.') }}{% endif %}
+  </section>
+</div>
+
+<section class="panel">
+  <h2>Evolución mensual</h2>
+  {% if series %}
+    {{ grafico_lineas(
+         series | map(attribute='periodo') | list,
+         [{'nombre': 'Afiliados', 'valores': series | map(attribute='total_afiliados') | list},
+          {'nombre': 'Atenciones', 'valores': series | map(attribute='total_atenciones') | list}]) }}
+  <table class="tabla">
+    <thead>
+      <tr><th>Periodo</th><th class="num">Afiliados</th><th class="num">Atenciones</th>
+          <th class="num">Camas oper.</th><th class="num">Ocupación</th></tr>
+    </thead>
+    <tbody>
+      {% for s in series %}
+      <tr>
+        <td>{{ s.periodo }}</td>
+        <td class="num">{{ s.total_afiliados|numero }}</td>
+        <td class="num">{{ s.total_atenciones|numero }}</td>
+        <td class="num">{{ s.camas_operativas|numero(1) }}</td>
+        <td class="num">{{ s.tasa_ocupacion|pct }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}{{ vacio() }}{% endif %}
+</section>
+{% endblock %}

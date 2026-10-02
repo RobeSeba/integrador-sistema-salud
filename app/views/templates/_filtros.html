@@ -1,0 +1,56 @@
+{# Barra de filtros reutilizable. Conserva los parametros de la URL actual
+   y solo replaces los que se cambian. #}
+<form method="get" action="{{ action_actual }}" class="barra-filtros">
+  <div class="campo">
+    <label for="fecha_inicio">Desde</label>
+    <input type="date" id="fecha_inicio" name="fecha_inicio"
+           value="{{ filtros.fecha_inicio if filtros }}">
+  </div>
+  <div class="campo">
+    <label for="fecha_fin">Hasta</label>
+    <input type="date" id="fecha_fin" name="fecha_fin"
+           value="{{ filtros.fecha_fin if filtros }}">
+  </div>
+  <div class="campo">
+    <label for="region">Región</label>
+    <select id="region" name="region">
+      <option value="">Todas</option>
+      {% for r in catalogo_regiones %}
+      <option value="{{ r.region }}"
+        {{ 'selected' if filtros and filtros.region == r.region }}>{{ r.region }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="campo">
+    <label for="plan_seguro">Plan</label>
+    <select id="plan_seguro" name="plan_seguro">
+      {% for clave, plan in planes_disponibles.items() %}
+      <option value="{{ clave }}"
+        {{ 'selected' if filtros and filtros.plan_seguro == clave }}>
+        {{ plan.nombre }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="campo">
+    <label for="servicio">Servicio</label>
+    <select id="servicio" name="servicio">
+      {% for clave, serv in servicios_disponibles.items() %}
+      <option value="{{ clave }}"
+        {{ 'selected' if filtros and filtros.servicio == clave }}>
+        {{ serv.nombre }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="campo">
+    <label for="umbral_ocupacion">Umbral ocupación %</label>
+    <input type="number" step="1" min="1" max="100" id="umbral_ocupacion"
+           name="umbral_ocupacion"
+           value="{{ filtros.umbral_ocupacion|int if filtros else 85 }}">
+  </div>
+  <div class="campo acciones">
+    <button type="submit" class="boton">Aplicar</button>
+    <a href="{{ url_for('tablero.panel') }}" class="boton boton-linea">Limpiar</a>
+  </div>
+</form>

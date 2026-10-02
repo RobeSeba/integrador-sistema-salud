@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% from "_macros.html" import vacio %}
+{% block titulo %}Ranking de priorización{% endblock %}
+
+{% block contenido %}
+<h1 class="titulo-pagina">{{ titulo }}</h1>
+{% set action_actual = url_for('analisis.ranking') %}
+{% include "_filtros.html" %}
+
+<form method="get" class="barra-filtros">
+  <input type="hidden" name="fecha_inicio" value="{{ filtros.fecha_inicio }}">
+  <input type="hidden" name="fecha_fin" value="{{ filtros.fecha_fin }}">
+  {% if filtros.region %}<input type="hidden" name="region" value="{{ filtros.region }}">{% endif %}
+  {% if filtros.plan_seguro %}<input type="hidden" name="plan_seguro" value="{{ filtros.plan_seguro }}">{% endif %}
+  {% if filtros.servicio %}<input type="hidden" name="servicio" value="{{ filtros.servicio }}">{% endif %}
+
+  <div class="campo">
+    <label for="perfil">Perfil de prioridad</label>
+    <select id="perfil" name="perfil">
+      {% for p in perfiles %}
+      <option value="{{ p.codigo }}" {{ 'selected' if perfil_sel == p.codigo }}>
+        {{ p.nombre }} ({{ p.reglas_activas }} reglas)
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="campo">
+    <label for="ambito">Ámbito</label>
+    <select id="ambito" name="ambito">
+      <option value="eess" {{ 'selected' if ambito == 'eess' }}>Establecimientos de salud</option>
+      <option value="territorio" {{ 'selected' if ambito == 'territorio' }}>Territorios</option>
+    </select>
+  </div>
+  {% if ambito == 'territorio' %}
+  <div class="campo">
+    <label for="nivel">Nivel</label>
+    <select id="nivel" name="nivel">
+      {% for clave, etiqueta in niveles_territorio.items() %}
+      <option value="{{ clave }}" {{ 'selected' if nivel == clave }}>{{ etiqueta }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+  <div class="campo">
+    <label for="limite">Límite</label>
+    <input type="number" id="limite" name="limite" min="5" max="500" value="{{ limite }}">
+  </div>
+  <div class="campo acciones">
+    <button type="submit" class="boton">Calcular</button>
+  </div>
+</form>
+
+{% if error %}
+<div class="mensaje mensaje-error">{{ error }}</div>
+{% endif %}
+
+{% if resultado %}
+<section class="panel">
+  <h2>{{ resultado.perfil.nombre }}</h2>
+  <p class="frase">{{ resultado.total_evaluados }} evaluables ·
+     {{ resultado.total_no_evaluables }} no evaluables ·
+     {{ resultado.reglas|length }} reglas activas</p>
+  {% if resultado.reglas %}
+  <details>
+    <summary>Reglas y ponderadores aplicados</summary>
+    <table class="tabla tabla-simple">
+      <thead><tr><th>Indicador</th><th class="num">Peso</th>
+                 <th>Rango</th><th>Dirección</th><th>Obligatorio</th></tr></thead>
+      <tbody>
+        {% for r in resultado.reglas %}
+        <tr>
+          <td>{{ r.nombre }} <code>{{ r.codigo }}</code></td>
+          <td class="num">{{ r.peso|numero(1) }}</td>
+          <td>{{ r.umbral_minimo }} – {{ r.umbral_maximo }}</td>
+          <td>{{ r.direccion }}</td>
+          <td>{{ 'Sí' if r.obligatorio else 'No' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h3>Distribución por categoría de prioridad</h3>
+  <div class="tarjetas-alerta">
+    {% for c in resultado.resumen_categorias %}
+    <div class="alerta" style="border-color: {{ c.color }}">
+      <p class="alerta-nivel">{{ c.etiqueta }}</p>
+      <p class="alerta-cifra">{{ c.cantidad|numero }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<p class="frase">
+  <a href="{{ url_filtros('analisis.exportar', recurso='ranking', perfil=perfil_sel, ambito=ambito, nivel=nivel, formato='csv') }}">Exportar CSV</a> ·
+  <a href="{{ url_filtros('analisis.exportar', recurso='ranking', perfil=perfil_sel, ambito=ambito, nivel=nivel, formato='xlsx') }}">Exportar XLSX</a>
+</p>
+
+{% if resultado.filas %}
+<table class="tabla tabla-datos">
+  <thead>
+    <tr>
+      <th>#</th><th>{{ 'Territorio' if ambito == 'territorio' else 'Establecimiento' }}</th>
+      <th>Ubicación</th>
+      <th class="num">Puntaje</th><th>Categoría</th>
+      <th class="num">Afiliados</th><th class="num">Afil./cama</th>
+      <th class="num">Ocupación</th><th class="num">Días en rojo</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in resultado.filas %}
+    {% set afiliados = f.total_afiliados if f.total_afiliados is defined else f.afiliados %}
+    <tr>
+      <td class="num">{{ f.posicion if f.posicion is defined else '-' }}</td>
+      <td>
+        {% if ambito == 'territorio' %}
+          {{ f.territorio }}
+        {% elif f.codigo_ipress %}
+          <a href="{{ url_filtros('analisis.establecimiento', codigo_ipress=f.codigo_ipress) }}">
+            {{ f.nombre_establecimiento or ('IPRESS ' ~ f.codigo_ipress) }}</a>
+        {% else %}{{ f.codigo_ipress }}{% endif %}
+      </td>
+      <td>
+        {% if ambito == 'territorio' %}
+          {{ f.establecimientos|numero }} EESS
+        {% else %}
+          {{ f.region or '' }}{% if f.provincia %} / {{ f.provincia }}{% endif %}
+        {% endif %}
+      </td>
+      <td class="num"><strong>{{ f.puntaje_relativo|numero(1) }}</strong></td>
+      <td>
+        <span class="pill" style="background: {{ f.categoria_color }}; color:#fff">
+          {{ f.categoria_etiqueta }}</span>
+        {% if not f.evaluable %}
+        <br><small title="{{ f.motivo_no_evaluable }}">sin dato obligatorio</small>
+        {% endif %}
+      </td>
+      <td class="num">{{ afiliados|numero }}</td>
+      <td class="num">{{ f.ratio_afiliados_cama|numero(1) }}</td>
+      <td class="num">{{ f.tasa_ocupacion|pct }}%</td>
+      <td class="num">{{ f.dias_alerta_roja if f.dias_alerta_roja is defined else '-' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}{{ vacio('Ningún registro cumple los criterios del perfil.') }}{% endif %}
+{% endif %}
+
+{% if brechas %}
+<section class="panel">
+  <h2>Brecha demanda/capacidad por departamento</h2>
+  <p class="ayuda">Razón de afiliados por cama operativa sobre todos los
+     departamentos, útil como contexto de presión territorial.</p>
+  <table class="tabla">
+    <thead><tr><th>Departamento</th><th class="num">Establec.</th>
+               <th class="num">Asegurados</th><th class="num">Afil./cama</th></tr></thead>
+    <tbody>
+      {% for b in brechas %}
+      <tr><td>{{ b.departamento }}</td>
+          <td class="num">{{ b.establecimientos|numero }}</td>
+          <td class="num">{{ b.total_asegurados|numero }}</td>
+          <td class="num">{{ b.ratio_asegurados_por_cama|numero(2) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

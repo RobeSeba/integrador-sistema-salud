@@ -1,0 +1,11 @@
+﻿{% extends "base.html" %}
+{% block titulo %}Solicitud incorrecta{% endblock %}
+{% block contenido %}
+<div class="error-pagina">
+  <p class="error-codigo">400</p>
+  <h1>Solicitud incorrecta</h1>
+  <p>Los parámetros enviados no son válidos o están fuera de rango.</p>
+  {% if mensaje %}<p class="error-detalle">{{ mensaje }}</p>{% endif %}
+  <a href="{{ url_for('tablero.panel') }}" class="boton">Ir al panel</a>
+</div>
+{% endblock %}

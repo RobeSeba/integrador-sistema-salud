@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_macros.html" import vacio %}
+{% block titulo %}Resumen territorial{% endblock %}
+
+{% block contenido %}
+<h1 class="titulo-pagina">{{ titulo }}</h1>
+{% set action_actual = url_for('tablero.resumen') %}
+{% include "_filtros.html" %}
+
+<p class="frase">
+  <a href="{{ url_filtros('analisis.exportar', recurso='territorio', nivel='region', formato='csv') }}">CSV</a> ·
+  <a href="{{ url_filtros('analisis.exportar', recurso='territorio', nivel='region', formato='xlsx') }}">XLSX</a>
+</p>
+
+{% if territoriales %}
+<table class="tabla tabla-datos">
+  <thead>
+    <tr><th>Región</th><th class="num">Establec.</th><th class="num">Afiliados</th>
+        <th class="num">Atenciones</th><th class="num">Recursos oper.</th>
+        <th class="num">Afil./cama</th><th class="num">Ocupación</th></tr>
+  </thead>
+  <tbody>
+    {% for f in territoriales %}
+    <tr>
+      <td><strong>{{ f.territorio }}</strong></td>
+      <td class="num">{{ f.establecimientos|numero }}</td>
+      <td class="num">{{ f.total_afiliados|numero }}</td>
+      <td class="num">{{ f.total_atenciones|numero }}</td>
+      <td class="num">{{ f.recursos_operativos|numero(1) }}</td>
+      <td class="num">{{ f.ratio_afiliados_cama|numero(1) }}</td>
+      <td class="num">{{ f.tasa_ocupacion|pct }}%</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}{{ vacio() }}{% endif %}
+
+{% if categorias %}
+<section class="panel">
+  <h2>Resumen por categoría</h2>
+  <table class="tabla">
+    <thead><tr><th>Categoría</th><th class="num">Establecimientos</th>
+               <th class="num">Camas promedio</th><th class="num">Ocupación promedio</th></tr></thead>
+    <tbody>
+      {% for c in categorias %}
+      <tr><td>{{ c.categoria }}</td>
+          <td class="num">{{ c.establecimientos|numero }}</td>
+          <td class="num">{{ c.camas_promedio|numero(1) }}</td>
+          <td class="num">{{ c.ocupacion_promedio|pct }}%</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

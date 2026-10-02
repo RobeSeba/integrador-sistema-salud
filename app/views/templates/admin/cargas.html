@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% from "_macros.html" import kpi, estado_pill %}
+{% block titulo %}Cargas de datos{% endblock %}
+{% block contenido %}
+<h1 class="titulo-pagina">{{ titulo }}</h1>
+
+<section class="kpis">
+  {{ kpi('Cargas registradas', resumen.total_cargas|numero) }}
+  {{ kpi('Aplicadas', resumen.aplicadas|numero, tono='ok') }}
+  {{ kpi('Validadas', resumen.validadas|numero, tono='info') }}
+  {{ kpi('Con error', resumen.con_error|numero,
+         tono='critico' if (resumen.con_error or 0) else 'neutro') }}
+  {{ kpi('Filas insertadas', resumen.filas_totales|numero,
+         'última: ' ~ (resumen.ultima_carga|fecha('con_hora') if resumen.ultima_carga else 'nunca')) }}
+</section>
+
+<p class="frase">
+  <a href="{{ url_for('admin.carga_nueva') }}" class="boton">Registrar carga</a>
+  <a href="{{ url_for('admin.calidad') }}" class="boton boton-linea">Calidad de datos</a>
+</p>
+
+{% if por_tabla %}
+<section class="panel">
+  <h2>Por tabla destino</h2>
+  <table class="tabla">
+    <thead><tr><th>Tabla</th><th class="num">Cargas</th><th class="num">Filas</th>
+               <th>Última carga</th></tr></thead>
+    <tbody>
+      {% for t in por_tabla %}
+      <tr><td>{{ tablas.get(t.tabla_destino, t.tabla_destino) }}</td>
+          <td class="num">{{ t.cargas|numero }}</td>
+          <td class="num">{{ t.filas|numero }}</td>
+          <td>{{ t.ultima_carga|fecha('con_hora') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Historial</h2>
+  <table class="tabla tabla-datos">
+    <thead>
+      <tr><th>Fecha</th><th>Archivo</th><th>Fuente</th><th>Tabla</th><th>Fecha del dato</th>
+          <th class="num">Filas</th><th class="num">Rechazadas</th><th>Estado</th>
+          <th>Usuario</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for c in cargas %}
+      <tr>
+        <td>{{ c.fecha_carga|fecha('con_hora') }}</td>
+        <td><a href="{{ url_for('admin.carga_detalle', id_carga=c.id_carga) }}">
+            {{ c.nombre_archivo }}</a></td>
+        <td>{{ c.fuente }}</td>
+        <td>{{ tablas.get(c.tabla_destino, c.tabla_destino) }}</td>
+        <td>{{ c.fecha_dato|fecha }}</td>
+        <td class="num">{{ c.filas_insertadas|numero }}</td>
+        <td class="num">{{ c.filas_rechazadas|numero }}</td>
+        <td>{{ estado_pill(c.estado) }}</td>
+        <td>{{ c.usuario_nombre or '—' }}</td>
+        <td class="acciones-celda">
+          <form method="post" action="{{ url_for('admin.carga_eliminar', id_carga=c.id_carga) }}"
+                onsubmit="return confirm('¿Eliminar el registro de carga?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="enlace enlace-peligro">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="10" class="vacio">Todavía no se han registrado cargas.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
