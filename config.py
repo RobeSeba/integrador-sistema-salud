@@ -30,7 +30,7 @@ class Config:
 
     # --- Base de datos (SQL Server / pyodbc) --------------------------------
     DB_DRIVER = os.environ.get("SIBS_DB_DRIVER", "ODBC Driver 17 for SQL Server")
-    DB_SERVER = os.environ.get("SIBS_DB_SERVER", r"DESKTOP-VN86FJO\SQLEXPRESS")
+    DB_SERVER = os.environ.get("SIBS_DB_SERVER", r"localhost")
     DB_NAME = os.environ.get("SIBS_DB_NAME", "SaludBrechasDB")
     DB_TRUSTED_CONNECTION = os.environ.get("SIBS_DB_TRUSTED", "yes")
     DB_TRUST_CERT = os.environ.get("SIBS_DB_TRUST_CERT", "yes")

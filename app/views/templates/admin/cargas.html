@@ -3,6 +3,7 @@
 {% block titulo %}Cargas de datos{% endblock %}
 {% block contenido %}
 <h1 class="titulo-pagina">{{ titulo }}</h1>
+{% include "admin/_admin_nav.html" %}
 
 <section class="kpis">
   {{ kpi('Cargas registradas', resumen.total_cargas|numero) }}

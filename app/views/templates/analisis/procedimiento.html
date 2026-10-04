@@ -19,6 +19,13 @@
 {% set action_actual = url_for('analisis.procedimiento', clave=clave) %}
 {% include "_filtros.html" %}
 
+<nav class="pestanas">
+  {% for p in catalogo %}
+  <a href="{{ url_for('analisis.procedimiento', clave=p.clave) }}"
+     class="{{ 'activa' if p.clave == clave }}">{{ p.titulo }}</a>
+  {% endfor %}
+</nav>
+
 <section class="panel">
   <h2>Procedimiento</h2>
   <p class="frase">{{ resultado.descripcion }}</p>

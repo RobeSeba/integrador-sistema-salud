@@ -1,0 +1,12 @@
+<nav class="pestanas">
+  <a href="{{ url_for('admin.usuarios') }}"
+     class="{{ 'activa' if request.endpoint == 'admin.usuarios' }}">Usuarios</a>
+  <a href="{{ url_for('admin.cargas') }}"
+     class="{{ 'activa' if request.endpoint == 'admin.cargas' }}">Cargas</a>
+  <a href="{{ url_for('admin.auditoria') }}"
+     class="{{ 'activa' if request.endpoint == 'admin.auditoria' }}">Auditoría</a>
+  <a href="{{ url_for('admin.perfiles') }}"
+     class="{{ 'activa' if request.endpoint in ('admin.perfiles', 'admin.perfil_detalle') }}">Perfiles de priorización</a>
+  <a href="{{ url_for('admin.calidad') }}"
+     class="{{ 'activa' if request.endpoint == 'admin.calidad' }}">Calidad de datos</a>
+</nav>

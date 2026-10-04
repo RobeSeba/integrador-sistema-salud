@@ -3,9 +3,10 @@
 {% block titulo %}Calidad de datos{% endblock %}
 {% block contenido %}
 <h1 class="titulo-pagina">{{ titulo }}</h1>
+{% include "admin/_admin_nav.html" %}
 
 <section class="kpis">
-  {{ kpi('Códigos en dim_ipress_ext', dim_ext.total_ipress|numero) }}
+  {{ kpi('Códigos en dim_ipress_ext', dim_ext.total|numero) }}
   {{ kpi('Catalogados (DIM_IPRESS)', dim_ext.catalogados|numero) }}
   {{ kpi('Con afiliación', dim_ext.con_afiliados|numero) }}
   {{ kpi('Con atenciones', dim_ext.con_atenciones|numero) }}
@@ -15,7 +16,7 @@
 <section class="panel">
   <h2>Reconstrucción de la dimensión territorial extendida</h2>
   <p class="frase">La tabla <code>dbo.dim_ipress_ext</code> unifica la geografía de los
-     tres hechos (catálogo, afiliados y atenciones). Si sedetecta códigos sin provincia o
+     tres hechos (catálogo, afiliados y atenciones). Si se detecta algún código sin provincia o
      región, basta con reconstruirla.</p>
   <form method="post" action="{{ url_for('admin.reconstruir_dim') }}"
         onsubmit="return confirm('¿Reconstruir dim_ipress_ext ahora?')">
@@ -28,14 +29,14 @@
 <section class="panel">
   <h2>Cobertura por nivel territorial</h2>
   <table class="tabla">
-    <thead><tr><th>Nivel</th><th class="num">Registros</th><th class="num">Completos</th>
-               <th class="num">ConRegion</th></tr></thead>
+    <thead><tr><th>Entidad</th><th class="num">Registros</th><th class="num">Entidades únicas</th>
+               <th class="num">Rango de fechas</th></tr></thead>
     <tbody>
       {% for c in cobertura %}
-      <tr><td>{{ c.nivel }}</td>
-          <td class="num">{{ c.total|numero }}</td>
-          <td class="num">{{ c.completos|numero }}</td>
-          <td class="num">{{ c.con_region|numero }}</td></tr>
+      <tr><td>{{ c.entidad }}</td>
+          <td class="num">{{ c.registros|numero }}</td>
+          <td class="num">{{ c.entidades|numero }}</td>
+          <td class="num">{% if c.fecha_min %}{{ c.fecha_min }} – {{ c.fecha_max }}{% else %}—{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -44,14 +45,14 @@
 
 <section class="panel">
   <h2>Alias territoriales</h2>
-  <p class="frase">Variantes de nombres recognized por
+  <p class="frase">Variantes de nombres reconocidas por
      <code>dbo.fn_canonico_territorio</code> durante la normalización.</p>
   {% if aliases %}
   <table class="tabla">
     <thead><tr><th>Nivel</th><th>Nombre original</th><th>Nombre canónico</th></tr></thead>
     <tbody>
       {% for a in aliases %}
-      <tr><td>{{ a.nivel_territorio }}</td>
+      <tr><td>{{ a.nivel }}</td>
           <td>{{ a.nombre_original }}</td>
           <td><strong>{{ a.nombre_canonico }}</strong></td></tr>
       {% endfor %}
@@ -87,7 +88,7 @@
 <section class="panel">
   <h2>Categorías detectadas</h2>
   <p class="frase">
-    {% for c in categorias %}{{ c.categoria }} ({{ c.establecimientos|numero }}){% if not loop.last %} · {% endif %}{% endfor %}
+    {% for c in categorias %}{{ c.valor }} ({{ c.establecimientos|numero }}){% if not loop.last %} · {% endif %}{% endfor %}
   </p>
 </section>
 {% endif %}

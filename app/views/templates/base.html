@@ -28,6 +28,8 @@
        class="{{ 'activo' if request.endpoint == 'analisis.evolucion' }}">Evolución</a>
     <a href="{{ url_for('analisis.alertas') }}"
        class="{{ 'activo' if request.endpoint == 'analisis.alertas' }}">Alertas</a>
+    <a href="{{ url_for('analisis.procedimiento', clave='presion_afiliados') }}"
+       class="{{ 'activo' if request.endpoint == 'analisis.procedimiento' }}">Procedimientos</a>
     {% if tiene_rol('ADMINISTRADOR') %}
     <a href="{{ url_for('admin.usuarios') }}"
        class="{{ 'activo' if request.blueprint == 'admin' }}">Administración</a>
