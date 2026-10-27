@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% from "_macros.html" import kpi, vacio, grafico_barras, grafico_lineas %}
+{% block titulo %}Mortalidad por COVID-19{% endblock %}
+
+{% block contenido %}
+<h1 class="titulo-pagina">{{ titulo }}</h1>
+{% set action_actual = url_for('analisis.mortalidad') %}
+{% include "_filtros.html" %}
+
+<p class="frase">
+  Fuente: <strong>dbo.dim_fallecidos_covid</strong> · Fallecimientos confirmados
+  2021-2023 con criterio de caso y banderas de vacunación, hospitalización y UCI.
+  {% if tiene_modulo('exportar') %}
+  Exportar por departamento:
+  <a href="{{ url_filtros('analisis.exportar', recurso='mortalidad', formato='csv') }}">CSV</a> ·
+  <a href="{{ url_filtros('analisis.exportar', recurso='mortalidad', formato='xlsx') }}">XLSX</a>
+  {% endif %}
+</p>
+
+<section class="kpis">
+  {{ kpi('Fallecidos', resumen.fallecidos|numero, 'personas confirmadas') }}
+  {{ kpi('Edad promedio', resumen.edad_promedio|numero(1, ' años'),
+        'máxima: ' ~ (resumen.edad_maxima|numero) ~ ' años') }}
+  {{ kpi('Vacunados', resumen.vacunados|numero,
+        ((resumen.vacunados * 100 / (resumen.fallecidos or 1))|round(1)) ~ '% del total',
+        'alerta') }}
+  {{ kpi('Hospitalizados', resumen.hospitalizados|numero,
+        ((resumen.hospitalizados * 100 / (resumen.fallecidos or 1))|round(1)) ~ '% del total') }}
+  {{ kpi('En UCI', resumen.en_uci|numero,
+        ((resumen.en_uci * 100 / (resumen.fallecidos or 1))|round(1)) ~ '% del total',
+        'critico') }}
+</section>
+
+<div class="dos-columnas">
+  <section class="panel">
+    <h2>Fallecimientos por mes</h2>
+    <p class="ayuda">Serie del periodo filtrado, con corte por vacunación.</p>
+    {% if series_grafico %}
+      {{ grafico_lineas(
+           series_grafico | map(attribute='periodo') | list,
+           [{'nombre': 'Fallecidos', 'valores': series_grafico | map(attribute='fallecidos') | list},
+            {'nombre': 'Vacunados', 'valores': series_grafico | map(attribute='vacunados') | list}]) }}
+      <table class="tabla">
+        <thead><tr><th>Mes</th><th class="num">Fallecidos</th>
+          <th class="num">Vacunados</th><th class="num">No vacunados</th></tr></thead>
+        <tbody>
+          {% for s in series %}
+          <tr><td>{{ s.periodo }}</td><td class="num">{{ s.fallecidos|numero }}</td>
+              <td class="num">{{ s.vacunados|numero }}</td>
+              <td class="num">{{ s.no_vacunados|numero }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}{{ vacio() }}{% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Criterio de defunción</h2>
+    <p class="ayuda">Clasificación oficial del caso (virologico, SINADEF…).</p>
+    {% if criterios_grafico %}
+    {{ grafico_barras(criterios_grafico, color='#7c3aed', unidad=' casos', formato=0) }}
+    <table class="tabla tabla-simple">
+      <tbody>
+        {% for c in criterios %}
+        <tr><th>{{ c.criterio }}</th>
+            <td class="num">{{ c.casos|numero }} ({{ c.porc }}%)</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}{{ vacio() }}{% endif %}
+  </section>
+</div>
+
+<section class="panel">
+  <h2>Fallecidos por grupo de edad y sexo</h2>
+  <p class="ayuda">Distribución etaria para focalizar grupos vulnerables.</p>
+  {% if grupos_edad_grafico.series %}
+    {{ grafico_lineas(grupos_edad_grafico.etiquetas, grupos_edad_grafico.series) }}
+  {% else %}{{ vacio() }}{% endif %}
+</section>
+
+<div class="dos-columnas">
+  <section class="panel">
+    <h2>Fallecidos por departamento</h2>
+    <p class="ayuda">Top 10 del periodo filtrado, por residencia del fallecido
+       (con respaldo del campo CDC cuando el domicilio no figura).</p>
+    {% if dptos_grafico %}
+    {{ grafico_barras(dptos_grafico, color='#dc2626', unidad=' casos', formato=0) }}
+    {% else %}{{ vacio() }}{% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Detalle por departamento</h2>
+    <table class="tabla tabla-datos">
+      <thead>
+        <tr><th>Departamento</th><th class="num">Fallecidos</th>
+            <th class="num">Vacunados %</th><th class="num">Hospitaliz. %</th>
+            <th class="num">UCI %</th><th class="num">Edad prom.</th></tr>
+      </thead>
+      <tbody>
+        {% for d in departamentos %}
+        <tr>
+          <td>{{ d.departamento }}</td>
+          <td class="num">{{ d.fallecidos|numero }}</td>
+          <td class="num">{{ d.porc_vacunados|numero(1) }}%</td>
+          <td class="num">{{ d.porc_hospitalizados|numero(1) }}%</td>
+          <td class="num">{{ d.porc_uci|numero(1) }}%</td>
+          <td class="num">{{ d.edad_promedio|numero(1) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+{% if anios %}
+<section class="panel">
+  <h2>Comparativo anual</h2>
+  <table class="tabla tabla-simple">
+    <thead><tr><th>Año</th><th class="num">Fallecidos</th><th class="num">En UCI</th>
+      <th class="num">Vacunados %</th></tr></thead>
+    <tbody>
+      {% for a in anios %}
+      <tr><td>{{ a.ano }}</td><td class="num">{{ a.fallecidos|numero }}</td>
+          <td class="num">{{ a.en_uci|numero }}</td>
+          <td class="num">{{ a.porc_vacunados|numero(1) }}%</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

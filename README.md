@@ -63,7 +63,9 @@ La aplicación queda en <http://127.0.0.1:5000>.
 
 Al arrancar se aplican los scripts de `app/database/migrations/` (idempotentes)
 y, si `sys_usuarios` está vacía, se crea el usuario `admin` con contraseña
-`admin123`. **Cámbiela en el primer acceso.**
+`admin123`. Además siembran los usuarios funcionales `analista`,
+`planificacion` y `monitoreo` con los módulos de su rol (ver sección 6).
+**Cámbialas en el primer acceso.**
 
 Comando adicional:
 
@@ -78,6 +80,7 @@ config.py                      Configuración por ambiente
 run.py                         Punto de entrada
 app/
   __init__.py                  Fábrica de la aplicación (create_app)
+  modulos.py                   Catálogo de módulos y defaults por rol
   database/
     bd.py                      Pool de conexiones pyodbc
     migraciones.py             Ejecución de migraciones y semilla
@@ -86,15 +89,17 @@ app/
     base_model.py              Consultas parametrizadas y conversión de tipos
     territorio_model.py         Catálogos, geografía y alias
     indicadores_model.py       Indicadores globales, territoriales y series
+    epidemiologia_model.py     Vigilancia IRA y mortalidad COVID (dimensiones nuevas)
     ranking_model.py           Motor de priorización por reglas
     procedimientos_model.py    Ejecución de procedimientos almacenados
-    admin_model.py             Usuarios, auditoría, cargas y perfiles
+    admin_model.py             Usuarios, módulos, auditoría, cargas y perfiles
   controllers/                 Traducen HTTP a llamadas de modelo
-    seguridad.py               Autenticación y control por rol
-    auth_controller.py         Login y logout
-    tablero_controller.py      Panel y resumen
-    analisis_controller.py     Territorio, ranking, EESS, evolución, alertas
-    admin_controller.py        Usuarios, auditoría, cargas, perfiles, calidad
+    seguridad.py               Autenticación y control por rol y módulo
+    auth_controller.py         Login, logout y aterrizaje por rol
+    tablero_controller.py      Panel y resumen (secciones según módulos)
+    analisis_controller.py     Territorio, ranking, EESS, evolución, alertas,
+                               vigilancia IRA y mortalidad COVID
+    admin_controller.py        Usuarios (+módulos), auditoría, cargas, perfiles, calidad
     api_controller.py          API JSON de solo lectura
     exportar.py                Descargas CSV y XLSX
   utils/
@@ -114,18 +119,51 @@ Los controladores tampoco transforman datos para las plantillas: arman las
 listas que alimentan los gráficos (`brechas_grafico`, `departamentos_grafico`)
 y la plantilla se limita a presentarlas.
 
-## 6. Roles
+## 6. Roles y módulos por usuario
 
-| Rol | Puede hacer |
+| Rol | Módulos por defecto |
 |---|---|
-| `ADMINISTRADOR` | Todo, incluido el módulo de administración |
-| `FUNCIONARIO` | Consultas, rankings, reportes y exportaciones |
-| `ANALISTA_SANITARIO` | Consulta territorial, fichas y series |
-| `ANALISTA_DATOS` | Análisis comparativo y exploración de datos |
-| `MONITOREO` | Vigilancia de ocupación crítica e inoperatividad |
+| `ADMINISTRADOR` | Todos, más el módulo de administración |
+| `ANALISTA_SANITARIO` | Panel, Territorio, Establecimientos, Evolución, Procedimientos, Vigilancia IRA y exportar |
+| `FUNCIONARIO` (planificación) | Ranking, Establecimientos y exportar |
+| `MONITOREO` | Alertas, Evolución, Vigilancia IRA y Mortalidad COVID |
+| `ANALISTA_DATOS` | *(rol legado, sin semillas en el sistema nuevo)* |
 
-El control se aplica en `app/controllers/seguridad.py`: `@requiere_login`
-exige sesión y el blueprint `admin` exige rol `ADMINISTRADOR`.
+El control fino es **por usuario**, no solo por rol. Cada módulo
+(`tablero`, `territorio`, `ranking`, `establecimiento`, `evolucion`,
+`alertas`, `procedimientos`, `vigilancia`, `mortalidad`, `exportar`) se
+habilita o deshabilita desde **Administración → Usuarios → Editar**: el
+formulario trae las casillas de módulos con los valores por defecto del rol,
+y el ajuste se guarda en `dbo.sys_permisos_usuario` (un registro por usuario
+y módulo, con el estado de **todo** el catálogo; sin filas para un usuario,
+rige el default de su rol). El catálogo vive en `app/modulos.py`.
+
+- El usuario sin acceso a una sección es redirigido a su pantalla inicial
+  (Panel para el analista, Ranking para planificación, Alertas para
+  monitoreo), no a un 403.
+- «Exportar» es transversal: habilita las descargas CSV/XLSX y la API JSON
+  (`/api/...`).
+- La pantalla de aterrizaje de cada rol se define en `ROL_INICIO` y puede
+  caer en un módulo personalizado si el administrador lo decidió así.
+- El panel (`/`) solo consulta y dibuja las secciones cuyo módulo tiene el
+  usuario: menos consultas y sin datos no autorizados.
+- Al crear los usuarios de rol se siembra su catálogo completo de módulos;
+  existen los usuarios `analista`, `planificacion` y `monitoreo`
+  (contraseñas provisionales documentadas por el operador).
+- La creación/edición/eliminación de usuarios queda registrada en
+  `sys_auditoria`.
+
+Usuarios funcionales siembreados por rol (idempotente al arrancar):
+
+| Usuario | Contraseña inicial | Rol |
+|---|---|---|
+| `admin` | `admin123` | Administrador |
+| `analista` | `analista123` | Analista sanitario |
+| `planificacion` | `planifica123` | Funcionario de planificación |
+| `monitoreo` | `monitorea123` | Responsable de monitoreo |
+
+**Cámbialas en el primer acceso** (Mi perfil). La siembra es idempotente:
+si el usuario ya existe no se toca.
 
 ### Perfil propio
 
@@ -142,12 +180,40 @@ casos el usuario deja de ser administrador.
 
 ## 7. Modelo de datos
 
-Estrella con tres hechos y una dimensión:
+Estrella con tres hechos y una dimensión, más las dos dimensiones
+epidemiológicas nuevas:
 
 - `dbo.dim_ipress` — catálogo de establecimientos (591 registros)
-- `dbo.fact_afiliados_sis` — afiliación por corte (8 322 registros)
-- `dbo.fact_atenciones` — atenciones por corte (86 registros)
-- `dbo.fact_capacidad_diaria` — capacidad y ocupación diaria (8 550 registros)
+- `dbo.dim_fallecidos_covid` — fallecidos por COVID-19 2021-2023
+  (124 000 registros): fecha de fallecimiento, edad, sexo, criterio de caso,
+  banderas de hospitalización/UCI/vacuna, ubigeo de residencia y CDC
+- `dbo.dim_vigilancia_iras` — vigilancia semanal de IRA 2021-2023
+  (265 963 registros): IRA no-neumonía, neumonías, hospitalizaciones y
+  defunciones (menores de 5 y 60+) por departamento
+- `dbo.fact_afiliados_sis` — afiliación por corte (207 739 registros)
+- `dbo.fact_atenciones` — atenciones por corte (299 038 registros)
+- `dbo.fact_capacidad_diaria` — capacidad y ocupación diaria (510 859 registros)
+
+Las dimensiones epidemiológicas no se unen a `dim_ipress_ext` porque traen
+su propia geografía canónica (departamento/provincia/distrito): el filtro
+`region` del sistema se aplica directamente sobre `departamento` y el
+periodo sobre `fecha_semana` (IRA) o `fecha_fallecimiento` (COVID).
+
+### Páginas y gráficos de las dimensiones nuevas
+
+**Vigilancia IRA** (`/analisis/vigilancia`, módulo `vigilancia`): KPIs de
+IRA no-neumonía, neumonías, hospitalizaciones y defunciones; línea con la
+evolución mensual; comparativo interanual; barras por departamento; tabla
+con letalidad de neumonía por territorio.
+
+**Mortalidad COVID** (`/analisis/mortalidad`, módulo `mortalidad`): KPIs de
+fallecidos, edad promedio, vacunados/hospitalizados/UCI; línea mensual de
+fallecidos con corte por vacunación; barras por criterio de caso
+(virologico, SINADEF, ...); barras de sexo por grupo de edad; detalle por
+departamento y comparativo anual.
+
+Además el **panel** muestra mini-panoramas de IRA y COVID para los usuarios
+con esos módulos habilitados.
 
 La geografía no se toma de una sola fuente porque cada hecho la trae con
 formato propio. `dbo.dim_ipress_ext` la unifica:
@@ -239,6 +305,8 @@ GET /api/indicadores/establecimiento/<codigo_ipress>
 GET /api/alertas/resumen
 GET /api/alertas/ocupacion?limite=50
 GET /api/ranking?perfil=BRECHA_CAPACIDAD&limite=25
+GET /api/vigilancia/ira          # exige el modulo vigilancia
+GET /api/mortalidad/covid        # exige el modulo mortalidad
 ```
 
 Los filtros de análisis (`fecha_inicio`, `fecha_fin`, `region`, `provincia`,

@@ -34,6 +34,7 @@
 </section>
 
 <div class="dos-columnas">
+  {% if ver_territorio %}
   <section class="panel">
     <h2>Brecha de capacidad por territorio</h2>
     <p class="ayuda">Top 10 por razón de afiliados por cama operativa.</p>
@@ -60,6 +61,7 @@
     {% else %}{{ vacio() }}{% endif %}
     <a class="enlace" href="{{ url_for('analisis.territorio') }}">Ver análisis territorial completo →</a>
   </section>
+  {% endif %}
 
   <section class="panel">
     <h2>Composición de afiliados</h2>
@@ -81,6 +83,7 @@
   </section>
 </div>
 
+{% if ver_alertas %}
 <section class="panel">
   <h2>Estado de alertas de ocupación</h2>
   {% if alertas %}
@@ -136,7 +139,36 @@
     {% else %}{{ vacio('Sin inoperatividad registrada en el periodo.') }}{% endif %}
   </section>
 </div>
+{% endif %}
 
+{% if ver_vigilancia or ver_mortalidad %}
+<div class="dos-columnas">
+  {% if ver_vigilancia %}
+  <section class="panel">
+    <h2>Epidemiología: neumonías por IRA</h2>
+    <p class="ayuda">Top departamentos del periodo (dim_vigilancia_iras).</p>
+    {% if ira_grafico %}
+    {{ grafico_barras(ira_grafico, color='#b45309', unidad='casos', formato=0) }}
+    {% else %}{{ vacio('Sin registros de vigilancia en el periodo.') }}{% endif %}
+    <a class="enlace" href="{{ url_for('analisis.vigilancia') }}">Ver vigilancia IRA completa →</a>
+  </section>
+  {% endif %}
+
+  {% if ver_mortalidad %}
+  <section class="panel">
+    <h2>Epidemiología: mortalidad COVID-19</h2>
+    <p class="ayuda">Fallecidos por mes del periodo (dim_fallecidos_covid).</p>
+    {% if covid_grafico %}
+    {{ grafico_barras(covid_grafico, clave_etiqueta='periodo', clave_valor='fallecidos',
+                      color='#dc2626', unidad='', formato=0) }}
+    {% else %}{{ vacio('Sin fallecimientos registrados en el periodo.') }}{% endif %}
+    <a class="enlace" href="{{ url_for('analisis.mortalidad') }}">Ver mortalidad COVID completa →</a>
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if ver_evolucion %}
 <section class="panel">
   <h2>Evolución mensual</h2>
   {% if series %}
@@ -163,4 +195,5 @@
   </table>
   {% else %}{{ vacio() }}{% endif %}
 </section>
+{% endif %}
 {% endblock %}

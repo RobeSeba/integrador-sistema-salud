@@ -87,6 +87,22 @@ class BaseModel:
         return afectadas
 
     @classmethod
+    def ejecutar_lote(cls, sql, lista_params):
+        """Ejecuta la misma sentencia N veces (executemany) en una transaccion.
+
+        `ejecutar` solo acepta UNA tupla de parametros; los inserts en lote
+        (ej. los permisos por usuario) necesitan executemany, que ademas es
+        mucho mas barato que N viajes al pool.
+        """
+        with conexion() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.executemany(sql, list(lista_params))
+            finally:
+                cursor.close()
+            conn.commit()
+
+    @classmethod
     def escalar(cls, sql, params=None, default=None):
         return cls.consultar_valor(sql, params, default=default)
 

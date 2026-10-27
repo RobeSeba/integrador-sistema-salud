@@ -16,6 +16,7 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
+from ..modulos import MODULOS, MODULOS_POR_ROL
 from ..models.admin_model import (
     AdminModel,
     AuditoriaModel,
@@ -46,11 +47,47 @@ def _exigir_administrador():
 # ----------------------------------------------------------------------
 # Usuarios
 # ----------------------------------------------------------------------
+def _modulos_del_formulario():
+    """Leer del POST el estado completo de los modulos.
+
+    Cada modulo envia hidden 0 + checkbox 1, asi el valor siempre llega
+    ('0' o '1') y un casillero destildado no se confunde con un campo
+    omitido. Si un navegador no envia el hidden, la clave se trata como
+    apagada (denegado por defecto).
+    """
+    estado = {}
+    for clave in MODULOS:
+        valor = request.form.get(f"modulo_{clave}")
+        if valor is None:
+            # Sin el par hidden/checkbox se trata como apagado: si un
+            # navegador antiguo no envia el hidden, cae aqui de forma
+            # segura (denegado por defecto).
+            estado[clave] = False
+        else:
+            estado[clave] = valor == "1"
+    return estado
+
+
+def _modulos_efectivos_para(id_usuario, rol):
+    """Estado completo {clave: bool} del usuario, con default de rol."""
+    filas = AdminModel.modulos_usuario(id_usuario)
+    if filas is None:
+        return {
+            clave: clave in MODULOS_POR_ROL.get(str(rol).upper(), set())
+            for clave in MODULOS
+        }
+    return {clave: filas.get(clave, False) for clave in MODULOS}
+
+
 @admin_bp.route("/usuarios")
 def usuarios():
+    listado = AdminModel.listar_usuarios()
+    for u in listado:
+        estado = _modulos_efectivos_para(u["id_usuario"], u["rol"])
+        u["total_modulos"] = sum(1 for ok in estado.values() if ok)
     contexto = {
         "titulo": "Gestion de usuarios",
-        "usuarios": AdminModel.listar_usuarios(),
+        "usuarios": listado,
         "roles": current_app.config["SIBS_CONFIG"].ROLES,
         "total_administradores": AdminModel.total_administradores_activos(),
     }
@@ -70,6 +107,17 @@ def usuario_nuevo():
                 request.form.get("cargo") or None,
                 activo=bool(request.form.get("activo")),
             )
+            estado = _modulos_del_formulario()
+            if request.form.get("modulos_rol") == "1":
+                estado = {
+                    clave: clave in MODULOS_POR_ROL.get(
+                        str(nuevo["rol"]).upper(), set()
+                    )
+                    for clave in MODULOS
+                }
+            AdminModel.fijar_modulos(
+                nuevo["id_usuario"], [c for c, ok in estado.items() if ok]
+            )
         except UsuarioInvalido as exc:
             flash(str(exc), "error")
         else:
@@ -84,6 +132,12 @@ def usuario_nuevo():
         "titulo": "Nuevo usuario",
         "roles": current_app.config["SIBS_CONFIG"].ROLES,
         "formulario": {},
+        "modulos_catalogo": MODULOS,
+        # JSON no serializa sets: listas ordenadas para el script del form.
+        "defaults_rol": {
+            rol: sorted(modulos) for rol, modulos in MODULOS_POR_ROL.items()
+        },
+        "modulos_formulario": None,
     }
     return render_template("admin/usuario_form.html", **contexto)
 
@@ -107,11 +161,23 @@ def usuario_editar(id_usuario):
             password = request.form.get("password") or ""
             if password:
                 AdminModel.cambiar_password(id_usuario, password)
+            estado = _modulos_del_formulario()
+            if request.form.get("modulos_rol") == "1":
+                estado = {
+                    clave: clave in MODULOS_POR_ROL.get(
+                        str(request.form.get("rol")).upper(), set()
+                    )
+                    for clave in MODULOS
+                }
+            AdminModel.fijar_modulos(
+                id_usuario, [c for c, ok in estado.items() if ok]
+            )
         except UsuarioInvalido as exc:
             flash(str(exc), "error")
         else:
             AuditoriaModel.registrar(
-                "USUARIOS", "EDITAR", f"Actualizacion de '{usuario['usuario']}'",
+                "USUARIOS", "EDITAR",
+                f"Actualizacion de '{usuario['usuario']}'",
                 g.usuario_admin["id_usuario"], g.usuario_admin["usuario"],
             )
             flash("Usuario actualizado.", "ok")
@@ -121,6 +187,15 @@ def usuario_editar(id_usuario):
         "titulo": f"Editar {usuario['usuario']}",
         "roles": current_app.config["SIBS_CONFIG"].ROLES,
         "formulario": usuario,
+        "modulos_catalogo": MODULOS,
+        # JSON no serializa sets: listas ordenadas para el script del form.
+        "defaults_rol": {
+            rol: sorted(modulos) for rol, modulos in MODULOS_POR_ROL.items()
+        },
+        # Sin ajuste la base muestra los defaults del rol con checkboxes.
+        "modulos_formulario": _modulos_efectivos_para(
+            id_usuario, usuario["rol"]
+        ),
         "es_yo": g.usuario_admin["id_usuario"] == id_usuario,
     }
     return render_template("admin/usuario_form.html", **contexto)

@@ -6,11 +6,12 @@ para los roles que ya pueden ver la interfaz.
 
 from flask import Blueprint, abort, g, jsonify, request
 
+from ..models.epidemiologia_model import EpidemiologiaModel
 from ..models.indicadores_model import IndicadoresModel
 from ..models.procedimientos_model import ProcedimientosModel
 from ..models.ranking_model import RankingError, RankingModel
 from ..models.territorio_model import TerritorioModel
-from .seguridad import requiere_login
+from .seguridad import requiere_login, requiere_modulo
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -147,3 +148,29 @@ def ranking():
         return jsonify({"ok": False, "error": str(exc)}), 400
     return _respuesta(datos["filas"], perfil=datos["perfil"].get("nombre"),
                       total_evaluados=datos["total_evaluados"])
+
+
+@api_bp.route("/vigilancia/ira")
+@requiere_login
+@requiere_modulo("vigilancia")
+def vigilancia_ira():
+    """Vigilancia de IRA: resumen del periodo y serie mensual."""
+    return _respuesta(
+        EpidemiologiaModel.resumen_ira(g.filtros),
+        serie=EpidemiologiaModel.serie_ira_mensual(g.filtros),
+        departamentos=EpidemiologiaModel.ira_por_departamento(g.filtros),
+        filtros=g.filtros.to_dict(),
+    )
+
+
+@api_bp.route("/mortalidad/covid")
+@requiere_login
+@requiere_modulo("mortalidad")
+def mortalidad_covid():
+    """Fallecidos por COVID-19: resumen del periodo y serie mensual."""
+    return _respuesta(
+        EpidemiologiaModel.resumen_covid(g.filtros),
+        serie=EpidemiologiaModel.serie_covid_mensual(g.filtros),
+        departamentos=EpidemiologiaModel.covid_por_departamento(g.filtros),
+        filtros=g.filtros.to_dict(),
+    )

@@ -89,19 +89,40 @@ def _registrar_filtros(app):
 
 # ----------------------------------------------------------------------
 def _registrar_context(app):
-    from .controllers.seguridad import roles_requeridos, usuario_actual
+    from .controllers.seguridad import (
+        tiene_modulo, roles_requeridos, usuario_actual,
+    )
+    from .modulos import MODULOS_NAVEGABLES, MODULOS
     from .utils.filtros import Filtros, desde_request
+
+    @app.template_global()
+    def url_modulo(clave):
+        """Enlace del modulo (respecta url_args). None si no existe."""
+        meta = MODULOS.get(clave)
+        if not meta:
+            return None
+        from flask import url_for as _url_for
+
+        return _url_for(meta["endpoint"], **(meta.get("url_args") or {}))
 
     @app.context_processor
     def _inyectar():
         config = app.config["SIBS_CONFIG"]
+        usuario = usuario_actual()
+
+        def _puede(clave):
+            return tiene_modulo(usuario, clave)
+
         return {
             "app_nombre": config.APP_NAME,
             "app_titulo": config.APP_TITULO,
             "app_subtitulo": config.APP_SUBTITULO,
             "roles_disponibles": config.ROLES,
-            "usuario": usuario_actual(),
+            "usuario": usuario,
             "tiene_rol": roles_requeridos,
+            "tiene_modulo": _puede,
+            "modulos_menu": MODULOS_NAVEGABLES,
+            "modulos_catalogo": MODULOS,
             "filtros": getattr(g, "filtros", None),
             "anio_actual": date.today().year,
         }

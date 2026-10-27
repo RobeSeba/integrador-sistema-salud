@@ -3,13 +3,14 @@
 from flask import Blueprint, abort, g, render_template, request
 
 from ..models.admin_model import PrioridadModel
+from ..models.epidemiologia_model import EpidemiologiaModel
 from ..models.indicadores_model import IndicadoresModel
 from ..models.procedimientos_model import ProcedimientosModel
 from ..models.ranking_model import RankingError, RankingModel
 from ..models.territorio_model import TerritorioModel
 from ..utils.filtros import PLANES_SEGURO, SERVICIOS
 from .exportar import construir_exportacion
-from .seguridad import requiere_login
+from .seguridad import requiere_login, requiere_modulo
 
 analisis_bp = Blueprint("analisis", __name__, url_prefix="/analisis")
 
@@ -34,6 +35,7 @@ def _base_contexto(extra):
 
 @analisis_bp.route("/territorio")
 @requiere_login
+@requiere_modulo("territorio")
 def territorio():
     filtros = g.filtros
     nivel = request.args.get("nivel", "region")
@@ -61,6 +63,7 @@ def territorio():
 
 @analisis_bp.route("/ranking")
 @requiere_login
+@requiere_modulo("ranking")
 def ranking():
     filtros = g.filtros
     perfil = request.args.get("perfil") or "BRECHA_CAPACIDAD"
@@ -102,6 +105,7 @@ def ranking():
 
 @analisis_bp.route("/establecimiento/<int:codigo_ipress>")
 @requiere_login
+@requiere_modulo("establecimiento")
 def establecimiento(codigo_ipress):
     filtros = g.filtros
     # Se fija el codigo en el objeto de filtros para que todos los bloques de
@@ -144,6 +148,7 @@ def establecimiento(codigo_ipress):
 
 @analisis_bp.route("/evolucion")
 @requiere_login
+@requiere_modulo("evolucion")
 def evolucion():
     filtros = g.filtros
     granularidad = filtros.granularidad
@@ -160,6 +165,7 @@ def evolucion():
 
 @analisis_bp.route("/alertas")
 @requiere_login
+@requiere_modulo("alertas")
 def alertas():
     filtros = g.filtros
     departamentos = ProcedimientosModel.alertas_por_departamento(filtros)
@@ -184,6 +190,7 @@ def alertas():
 
 @analisis_bp.route("/procedimientos/<clave>")
 @requiere_login
+@requiere_modulo("procedimientos")
 def procedimiento(clave):
     if clave not in ProcedimientosModel.SQL:
         abort(404)
@@ -200,8 +207,121 @@ def procedimiento(clave):
     return render_template("analisis/procedimiento.html", **contexto)
 
 
+@analisis_bp.route("/vigilancia")
+@requiere_login
+@requiere_modulo("vigilancia")
+def vigilancia():
+    """Vigilancia epidemiologica de IRA (dbo.dim_vigilancia_iras).
+
+    Serie semanal/mensual de neumonias, hospitalizaciones y defunciones por
+    territorio. `region` del filtro actua sobre `departamento`.
+    """
+    filtros = g.filtros
+    resumen = EpidemiologiaModel.resumen_ira(filtros)
+    departamentos = EpidemiologiaModel.ira_por_departamento(filtros)
+    series = EpidemiologiaModel.serie_ira_mensual(filtros)
+    anios = EpidemiologiaModel.comparativo_ira_anual(filtros)
+    contexto = _base_contexto(
+        {
+            "titulo": "Vigilancia epidemiologica de IRA",
+            "resumen": resumen,
+            "series": series,
+            "anios": anios,
+            "departamentos": departamentos,
+            # Graficos armados en el controlador, no en la plantilla.
+            "series_grafico": [
+                {"periodo": s["periodo"], "neumonias": s["neumonias"],
+                 "hospitalizaciones": s["hospitalizaciones"],
+                 "defunciones": s["defunciones"]}
+                for s in series
+            ],
+            "dptos_grafico": [
+                {"etiqueta": d["departamento"], "valor": d["neumonias"] or 0}
+                for d in departamentos[:10]
+            ],
+            "anios_grafico": [
+                {"etiqueta": str(a["ano"]), "valor": a["neumonias"] or 0}
+                for a in anios
+            ],
+        }
+    )
+    return render_template("analisis/vigilancia.html", **contexto)
+
+
+@analisis_bp.route("/mortalidad")
+@requiere_login
+@requiere_modulo("mortalidad")
+def mortalidad():
+    """Fallecidos por COVID-19 (dbo.dim_fallecidos_covid).
+
+    Serie mensual de defunciones, criterio de caso, sexo y edad, y cobertura
+    de vacunacion, por territorio.
+    """
+    filtros = g.filtros
+    resumen = EpidemiologiaModel.resumen_covid(filtros)
+    departamentos = EpidemiologiaModel.covid_por_departamento(filtros)
+    criterios = EpidemiologiaModel.covid_por_criterio(filtros)
+    sexo_edad = EpidemiologiaModel.covid_por_sexo_edad(filtros)
+    series = EpidemiologiaModel.serie_covid_mensual(filtros)
+    contexto = _base_contexto(
+        {
+            "titulo": "Mortalidad por COVID-19",
+            "resumen": resumen,
+            "series": series,
+            "anios": EpidemiologiaModel.covid_comparativo_anual(filtros),
+            "departamentos": departamentos,
+            "criterios": criterios,
+            # Graficos armados en el controlador (criterios, sexo/edad).
+            "series_grafico": [
+                {"periodo": s["periodo"], "fallecidos": s["fallecidos"],
+                 "vacunados": s["vacunados"]}
+                for s in series
+            ],
+            "criterios_grafico": [
+                {"etiqueta": c["criterio"], "valor": c["casos"] or 0}
+                for c in criterios
+            ],
+            "dptos_grafico": [
+                {"etiqueta": d["departamento"], "valor": d["fallecidos"] or 0}
+                for d in departamentos[:10]
+            ],
+            "grupos_edad_grafico": _por_sexo_edad(sexo_edad),
+        }
+    )
+    return render_template("analisis/mortalidad.html", **contexto)
+
+
+def _por_sexo_edad(sexo_edad):
+    """Une sexo y grupo de edad para un grafico de barras comparativo.
+
+    Devuelve una serie por sexo alineada con los grupos; la plantilla usa
+    grafico_lineas (la tendencia de mayores/grupos) o barras por grupo.
+    """
+    grupos = []
+    for fila in sexo_edad:
+        if fila["grupo_edad"] not in grupos:
+            grupos.append(fila["grupo_edad"])
+    por_sexo = {"M": [], "F": []}
+    for grupo in grupos:
+        for sexo in por_sexo:
+            correspondiente = next(
+                (f["casos"] for f in sexo_edad
+                 if f["grupo_edad"] == grupo and f["sexo"] == sexo),
+                0,
+            )
+            por_sexo[sexo].append(correspondiente or 0)
+    return {
+        "etiquetas": grupos,
+        "series": [
+            {"nombre": "Masculino", "valores": por_sexo["M"]},
+            {"nombre": "Femenino", "valores": por_sexo["F"]},
+        ],
+    }
+
+
 @analisis_bp.route("/exportar/<recurso>")
 @requiere_login
+@requiere_modulo("exportar")
 def exportar(recurso):
     """Descarga CSV o XLSX del recurso solicitado con los filtros activos."""
     filtros = g.filtros
@@ -227,6 +347,12 @@ def exportar(recurso):
     elif recurso == "serie":
         datos = IndicadoresModel.serie_temporal(filtros)
         nombre_archivo = f"sibs_serie_{filtros.fecha_inicio}_{filtros.fecha_fin}"
+    elif recurso == "vigilancia":
+        datos = EpidemiologiaModel.ira_por_departamento(filtros)
+        nombre_archivo = f"sibs_vigilancia_ira_{filtros.fecha_inicio}_{filtros.fecha_fin}"
+    elif recurso == "mortalidad":
+        datos = EpidemiologiaModel.covid_por_departamento(filtros)
+        nombre_archivo = f"sibs_mortalidad_covid_{filtros.fecha_inicio}_{filtros.fecha_fin}"
     else:
         abort(404)
 

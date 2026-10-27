@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% from "_macros.html" import kpi, vacio, grafico_barras, grafico_lineas %}
+{% block titulo %}Vigilancia epidemiológica de IRA{% endblock %}
+
+{% block contenido %}
+<h1 class="titulo-pagina">{{ titulo }}</h1>
+{% set action_actual = url_for('analisis.vigilancia') %}
+{% include "_filtros.html" %}
+
+<p class="frase">
+  Fuente: <strong>dbo.dim_vigilancia_iras</strong> · Vigilancia semanal por
+  departamento · Semanas epidemiológicas 2021-2023.
+  {% if tiene_modulo('exportar') %}
+  Exportar por departamento:
+  <a href="{{ url_filtros('analisis.exportar', recurso='vigilancia', formato='csv') }}">CSV</a> ·
+  <a href="{{ url_filtros('analisis.exportar', recurso='vigilancia', formato='xlsx') }}">XLSX</a>
+  {% endif %}
+</p>
+
+<section class="kpis">
+  {{ kpi('IRA no neumonía', resumen.ira_no_neumonia|numero, 'casos del periodo') }}
+  {{ kpi('Neumonías', resumen.neumonias|numero,
+        '<5 años: ' ~ (resumen.neumonias_men5|numero) ~ ' · 60+: ' ~ (resumen.neumonias_60mas|numero)) }}
+  {{ kpi('Hospitalizaciones', resumen.hospitalizaciones|numero, 'menores de 5 y 60+') }}
+  {{ kpi('Defunciones', resumen.defunciones|numero, 'menores de 5 y 60+',
+        'critico' if (resumen.defunciones or 0) > 0 else 'neutro') }}
+  {{ kpi('Semanas reportadas', resumen.semanas_reportadas|numero,
+        resumen.anios_cubiertos|numero ~ ' año(s) con datos') }}
+</section>
+
+<div class="dos-columnas">
+  <section class="panel">
+    <h2>Evolución mensual</h2>
+    <p class="ayuda">Neumonías, hospitalizaciones y defunciones por mes.</p>
+    {% if series_grafico %}
+      {{ grafico_lineas(
+           series_grafico | map(attribute='periodo') | list,
+           [{'nombre': 'Neumonías', 'valores': series_grafico | map(attribute='neumonias') | list},
+            {'nombre': 'Hospitalizaciones', 'valores': series_grafico | map(attribute='hospitalizaciones') | list},
+            {'nombre': 'Defunciones', 'valores': series_grafico | map(attribute='defunciones') | list}]) }}
+    {% else %}{{ vacio() }}{% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Neumonías por año</h2>
+    <p class="ayuda">Comparativo interanual del periodo filtrado.</p>
+    {% if anios_grafico %}
+    {{ grafico_barras(anios_grafico, color='#0284c7', unidad=' casos', formato=0) }}
+    <table class="tabla tabla-simple">
+      <thead><tr><th>Año</th><th class="num">IRA no neum.</th><th class="num">Neumonías</th>
+        <th class="num">Hospit.</th><th class="num">Defunc.</th></tr></thead>
+      <tbody>
+        {% for a in anios %}
+        <tr><td>{{ a.ano }}</td><td class="num">{{ a.ira_no_neumonia|numero }}</td>
+            <td class="num">{{ a.neumonias|numero }}</td>
+            <td class="num">{{ a.hospitalizaciones|numero }}</td>
+            <td class="num">{{ a.defunciones|numero }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}{{ vacio() }}{% endif %}
+  </section>
+</div>
+
+<section class="panel">
+  <h2>Neumonías por departamento</h2>
+  <p class="ayuda">Top 10 del periodo filtrado.</p>
+  {% if dptos_grafico %}
+  {{ grafico_barras(dptos_grafico, color='#b45309', unidad=' casos', formato=0) }}
+  <table class="tabla tabla-datos">
+    <thead>
+      <tr><th>Departamento</th><th class="num">Semanas</th>
+          <th class="num">IRA no neum.</th><th class="num">Neum. &lt;5</th>
+          <th class="num">Neum. 60+</th><th class="num">Hospitaliz.</th>
+          <th class="num">Defunciones</th><th class="num">Letal. neumonía</th></tr>
+    </thead>
+    <tbody>
+      {% for d in departamentos %}
+      <tr>
+        <td>{{ d.departamento }}</td>
+        <td class="num">{{ d.semanas|numero }}</td>
+        <td class="num">{{ d.ira_no_neumonia|numero }}</td>
+        <td class="num">{{ d.neumonias_men5|numero }}</td>
+        <td class="num">{{ d.neumonias_60mas|numero }}</td>
+        <td class="num">{{ d.hospitalizaciones|numero }}</td>
+        <td class="num">{{ d.defunciones|numero }}</td>
+        <td class="num">{{ d.letalidad_neumonia|numero(2) }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}{{ vacio() }}{% endif %}
+</section>
+{% endblock %}

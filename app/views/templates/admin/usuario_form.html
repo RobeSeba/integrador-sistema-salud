@@ -46,9 +46,62 @@
       Activo
     </label>
   </div>
+
+  {# ------------------------------------------------------------------
+     Control de modulos por usuario: el administrador elige que secciones
+     y graficos ve esta cuenta. Puede tomar los del rol o afinar a mano.
+  ------------------------------------------------------------------ #}
+  <fieldset class="campo modulos-set">
+    <legend>Módulos habilitados</legend>
+    <label class="casilla">
+      <input type="checkbox" id="modulos_rol" name="modulos_rol" value="1">
+      Usar los módulos del rol (ignora la lista siguiente)
+    </label>
+    <p class="nota">Cada casilla habilita la sección para el usuario.
+       «Exportar» controla las descargas CSV/XLSX y la API JSON.</p>
+    <div class="modulos-grid">
+      {% for clave, meta in modulos_catalogo.items() %}
+      <label class="casilla casilla-modulo" title="{{ meta.descripcion }}">
+        <input type="hidden" name="modulo_{{ clave }}" value="0">
+        <input type="checkbox" name="modulo_{{ clave }}" value="1"
+               data-modulo="{{ clave }}"
+               {{ 'checked' if modulos_formulario and modulos_formulario.get(clave, false) }}>
+        {{ meta.nombre or 'Exportar (API y descargas)' }}
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+
   <div class="campo acciones">
     <button type="submit" class="boton">Guardar</button>
     <a href="{{ url_for('admin.usuarios') }}" class="boton boton-linea">Cancelar</a>
   </div>
 </form>
+
+{# Defaults por rol: al cambiar el rol se re-marcan los casilleros y se
+   limpia la marca "usar los del rol". #}
+<script id="defaults-rol" type="application/json">{{ defaults_rol | tojson }}</script>
+<script>
+(function () {
+  var select = document.getElementById('rol');
+  var heredar = document.getElementById('modulos_rol');
+  var datos = JSON.parse(document.getElementById('defaults-rol').textContent || '{}');
+  function aplicar() {
+    if (!datos) return;
+    var activos = datos[select.value] || [];
+    document.querySelectorAll('input[data-modulo]').forEach(function (chk) {
+      chk.checked = activos.indexOf(chk.dataset.modulo) !== -1;
+    });
+  }
+  if (select && heredar && datos) {
+    select.addEventListener('change', function () {
+      // El admin elige el rol: se aplican sus defaults y se limpia la
+      // casilla "usar los del rol". Al cargar la pagina NO se re-aplican,
+      // para no pisar el ajuste personalizado ya guardado.
+      heredar.checked = false;
+      aplicar();
+    });
+  }
+})();
+</script>
 {% endblock %}

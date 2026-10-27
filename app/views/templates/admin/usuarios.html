@@ -13,7 +13,7 @@
 
 <table class="tabla tabla-datos">
   <thead>
-    <tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Correo</th><th>Cargo</th>
+    <tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Módulos</th><th>Correo</th><th>Cargo</th>
         <th>Estado</th><th>Último acceso</th><th></th></tr>
   </thead>
   <tbody>
@@ -22,6 +22,7 @@
       <td><strong>{{ u.usuario }}</strong></td>
       <td>{{ u.nombre_completo }}</td>
       <td><span class="pill pill-info">{{ u.rol }}</span></td>
+      <td><span class="pill pill-neutro">{{ u.total_modulos }} módulo(s)</span></td>
       <td>{{ u.email or '—' }}</td>
       <td>{{ u.cargo or '—' }}</td>
       <td>{{ 'Activo' if u.activo else 'Inactivo' }}</td>

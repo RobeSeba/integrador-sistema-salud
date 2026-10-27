@@ -197,6 +197,61 @@ class AdminModel(BaseModel):
             default=0,
         )
 
+    # ==================================================================
+    # Modulos habilitados por usuario (Administracion > Usuarios)
+    # ==================================================================
+    @classmethod
+    def fijar_modulos(cls, id_usuario, permitidos):
+        """Guarda el conjunto completo de modulos de un usuario.
+
+        `permitidos` es la lista de claves habilitadas; el resto del catalogo
+        se graba en 0. Guardar el catalogo completo evita ambiguedades: una
+        clave ausente no puede interpretarse como 'ajustar al rol' ni como
+        'apagar', siempre es 'apagar'.
+        """
+        from ..modulos import MODULOS
+
+        permitidos = {str(c).lower() for c in (permitidos or []) if c}
+        cls.ejecutar(
+            "DELETE FROM dbo.sys_permisos_usuario WHERE id_usuario = ?",
+            [id_usuario],
+        )
+        cls.ejecutar_lote(
+            "INSERT INTO dbo.sys_permisos_usuario (id_usuario, modulo, permitido) "
+            "VALUES (?, ?, ?)",
+            [
+                (id_usuario, clave, 1 if clave in permitidos else 0)
+                for clave in MODULOS
+            ],
+        )
+        return cls.modulos_usuario(id_usuario)
+
+    @classmethod
+    def modulos_usuario(cls, id_usuario):
+        """Estado completo de los modulos del usuario: {clave: bool}."""
+        from ..modulos import MODULOS
+
+        filas = cls.consultar(
+            "SELECT modulo, permitido FROM dbo.sys_permisos_usuario "
+            "WHERE id_usuario = ?",
+            [id_usuario],
+        )
+        con_overrides = {
+            str(f["modulo"]).lower(): bool(f["permitido"]) for f in filas
+        }
+        # Usuarios sin ajuste (ej. el admin) heredan el default "todo"
+        # representado en la tabla; en la practica quien no tiene filas usa
+        # el default de su rol resuelto en seguridad.py.
+        return con_overrides if con_overrides else None
+
+    @classmethod
+    def defaults_modulos_rol(cls, rol):
+        """Default del catalogo para un rol (semilla del formulario)."""
+        from ..modulos import MODULOS_POR_ROL
+
+        return {clave: clave in MODULOS_POR_ROL.get(str(rol).upper(), set())
+                for clave in MODULOS}
+
 
 class AuditoriaModel(BaseModel):
     """Registro de eventos relevantes del sistema."""

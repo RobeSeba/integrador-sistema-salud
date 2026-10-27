@@ -11,7 +11,12 @@ from flask import (
 )
 
 from ..models.admin_model import AdminModel, AuditoriaModel, UsuarioInvalido
-from .seguridad import requiere_login, usuario_actual
+from .seguridad import (
+    ControlAccesoDenegado,
+    pantalla_inicio,
+    requiere_login,
+    usuario_actual,
+)
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/")
 
@@ -19,7 +24,11 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/")
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("id_usuario"):
-        return redirect(url_for("tablero.panel"))
+        usuario_sesion = usuario_actual()
+        if usuario_sesion:
+            endpoint, url_args = pantalla_inicio(usuario_sesion)
+            return redirect(url_for(endpoint, **url_args))
+        session.clear()
 
     error = None
     usuario_input = ""
@@ -43,11 +52,22 @@ def login():
                 "ACCESO", "INGRESO", "Inicio de sesion", usuario["id_usuario"],
                 usuario["usuario"],
             )
-            destino = request.args.get("siguiente") or url_for("tablero.panel")
-            # Solo se admiten rutas internas para evitar redireccion abierta.
-            if not destino.startswith("/") or destino.startswith("//"):
-                destino = url_for("tablero.panel")
-            return redirect(destino)
+            # Aterrizaje segun el primer modulo habilitado (Panel para el
+            # analista, Ranking para planificacion, Alertas para monitoreo).
+            try:
+                endpoint, url_args = pantalla_inicio(usuario)
+            except ControlAccesoDenegado:
+                session.clear()
+                error = (
+                    "Su cuenta no tiene modulos habilitados. "
+                    "Contacte al administrador."
+                )
+            else:
+                destino = request.args.get("siguiente") or url_for(endpoint, **url_args)
+                # Solo se admiten rutas internas para evitar redireccion abierta.
+                if not destino.startswith("/") or destino.startswith("//"):
+                    destino = url_for(endpoint, **url_args)
+                return redirect(destino)
 
     return render_template(
         "auth/login.html",

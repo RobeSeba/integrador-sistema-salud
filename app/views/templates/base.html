@@ -18,18 +18,14 @@
 
   {% if usuario %}
   <nav class="menu">
-    <a href="{{ url_for('tablero.panel') }}"
-       class="{{ 'activo' if request.blueprint == 'tablero' }}">Panel</a>
-    <a href="{{ url_for('analisis.territorio') }}"
-       class="{{ 'activo' if request.endpoint == 'analisis.territorio' }}">Territorio</a>
-    <a href="{{ url_for('analisis.ranking') }}"
-       class="{{ 'activo' if request.endpoint == 'analisis.ranking' }}">Ranking</a>
-    <a href="{{ url_for('analisis.evolucion') }}"
-       class="{{ 'activo' if request.endpoint == 'analisis.evolucion' }}">Evolución</a>
-    <a href="{{ url_for('analisis.alertas') }}"
-       class="{{ 'activo' if request.endpoint == 'analisis.alertas' }}">Alertas</a>
-    <a href="{{ url_for('analisis.procedimiento', clave='presion_afiliados') }}"
-       class="{{ 'activo' if request.endpoint == 'analisis.procedimiento' }}">Procedimientos</a>
+    {% for clave in modulos_menu %}
+    {% if tiene_modulo(clave) %}
+    <a href="{{ url_modulo(clave) }}"
+       class="{{ 'activo' if request.endpoint == modulos_catalogo[clave].endpoint }}">
+      {{ modulos_catalogo[clave].nombre }}
+    </a>
+    {% endif %}
+    {% endfor %}
     {% if tiene_rol('ADMINISTRADOR') %}
     <a href="{{ url_for('admin.usuarios') }}"
        class="{{ 'activo' if request.blueprint == 'admin' }}">Administración</a>

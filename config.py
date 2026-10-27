@@ -30,7 +30,7 @@ class Config:
 
     # --- Base de datos (SQL Server / pyodbc) --------------------------------
     DB_DRIVER = os.environ.get("SIBS_DB_DRIVER", "ODBC Driver 17 for SQL Server")
-    DB_SERVER = os.environ.get("SIBS_DB_SERVER", r"localhost")
+    DB_SERVER = os.environ.get("SIBS_DB_SERVER", r"DESKTOP-VN86FJO\SQLEXPRESS")
     DB_NAME = os.environ.get("SIBS_DB_NAME", "SaludBrechasDB")
     DB_TRUSTED_CONNECTION = os.environ.get("SIBS_DB_TRUSTED", "yes")
     DB_TRUST_CERT = os.environ.get("SIBS_DB_TRUST_CERT", "yes")
@@ -59,17 +59,29 @@ class Config:
     ROLES = {
         "ADMINISTRADOR": {
             "nombre": "Administrador",
-            "descripcion": "Gestion de usuarios, cargas de datos y reglas de priorizacion.",
+            "descripcion": (
+                "Gestion de usuarios y de los modulos que ve cada uno, "
+                "cargas de datos y reglas de priorizacion."
+            ),
             "color": "#7c3aed",
         },
         "FUNCIONARIO": {
-            "nombre": "Funcionario",
-            "descripcion": "Rankings, detalle de establecimientos y reportes para gestion.",
+            "nombre": "Funcionario de planificacion",
+            "descripcion": (
+                "Consulta el ranking de establecimientos por indice de brecha "
+                "y sus fichas de detalle (afiliacion, demanda, ocupacion y "
+                "disponibilidad) para sustentar decisiones de planificacion."
+            ),
             "color": "#0d9488",
         },
         "ANALISTA_SANITARIO": {
             "nombre": "Analista sanitario",
-            "descripcion": "Consulta territorial de afiliados, atenciones y capacidad.",
+            "descripcion": (
+                "Consulta afiliados, atenciones y capacidad sanitaria por "
+                "territorio y establecimiento. Aplica filtros por fecha, "
+                "servicio y plan de seguro, compara indicadores y analiza su "
+                "evolucion temporal. Visualiza graficos y exporta resultados."
+            ),
             "color": "#0284c7",
         },
         "ANALISTA_DATOS": {
@@ -79,7 +91,11 @@ class Config:
         },
         "MONITOREO": {
             "nombre": "Responsable de monitoreo",
-            "descripcion": "Vigilancia de ocupacion critica e inoperatividad de recursos.",
+            "descripcion": (
+                "Supervisa establecimientos con niveles criticos de ocupacion "
+                "o baja disponibilidad de recursos sanitarios, hace seguimiento "
+                "a su evolucion y orienta acciones preventivas."
+            ),
             "color": "#dc2626",
         },
     }
